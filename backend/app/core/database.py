@@ -11,23 +11,26 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import settings
 
-# ── Engine ────────────────────────────────────────────────────────────────────
-_connect_args: dict = {}
+
+# Engine
 if settings.DATABASE_URL.startswith("sqlite"):
-    # SQLite needs check_same_thread disabled
-    _connect_args = {"check_same_thread": False}
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=settings.DEBUG,
+        connect_args={"check_same_thread": False},
+    )
+else:
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=settings.DEBUG,
+        pool_size=settings.DB_POOL_SIZE,
+        max_overflow=settings.DB_MAX_OVERFLOW,
+        pool_recycle=settings.DB_POOL_RECYCLE,
+        pool_pre_ping=True,
+    )
 
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    connect_args=_connect_args,
-    # pool settings are ignored by SQLite but used by Postgres
-    pool_size=settings.DB_POOL_SIZE if not settings.DATABASE_URL.startswith("sqlite") else 5,
-    max_overflow=settings.DB_MAX_OVERFLOW if not settings.DATABASE_URL.startswith("sqlite") else 0,
-    pool_recycle=settings.DB_POOL_RECYCLE,
-    pool_pre_ping=True,
-)
 
+# Database session
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
     expire_on_commit=False,
@@ -36,13 +39,13 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
-# ── Base ──────────────────────────────────────────────────────────────────────
+# Base
 class Base(DeclarativeBase):
     """All models inherit from this."""
     pass
 
 
-# ── Dependency ────────────────────────────────────────────────────────────────
+# Dependency
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency — yields a DB session per request."""
     async with AsyncSessionLocal() as session:
