@@ -7,6 +7,8 @@ import Account from "./pages/Account";
 import BusinessDetail from "./pages/BusinessDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
 import GoogleCallback from "./pages/GoogleCallback";
+import Dashboard from "./pages/Dashboard";
+import ListingForm from "./pages/ListingForm";
 
 function App() {
   return (
@@ -27,6 +29,8 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/account" element={<Account />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/listings/new" element={<ListingForm />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -36,3 +40,4 @@ function App() {
 }
 
 export default App;
+
