@@ -1,8 +1,9 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/client";
+import { startGoogleLogin } from "../api/googleAuth";
 import "../styles/auth.css";
+
 function Login() {
   const navigate = useNavigate();
 
@@ -103,6 +104,18 @@ function Login() {
             {isSubmitting ? "Signing in..." : "Sign in"}
           </button>
         </form>
+
+        <div className="auth-divider">
+          <span>or</span>
+        </div>
+
+        <button
+          type="button"
+          className="google-button"
+          onClick={startGoogleLogin}
+        >
+          Continue with Google
+        </button>
 
         <p className="auth-footer">
           Don't have an account?{" "}

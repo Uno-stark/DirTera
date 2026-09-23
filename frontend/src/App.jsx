@@ -6,6 +6,7 @@ import Register from "./pages/Register";
 import Account from "./pages/Account";
 import BusinessDetail from "./pages/BusinessDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
+import GoogleCallback from "./pages/GoogleCallback";
 
 function App() {
   return (
@@ -16,6 +17,8 @@ function App() {
         <Route path="/login" element={<Login />} />
 
         <Route path="/register" element={<Register />} />
+
+         <Route path="/auth/callback" element={<GoogleCallback />} />
 
         <Route
           path="/businesses/:websiteId"
