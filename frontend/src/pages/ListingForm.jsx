@@ -1,33 +1,39 @@
+
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import api from "../api/client";
 import "../styles/listing-form.css";
 
+const emptyForm = {
+  name: "",
+  url: "",
+  short_description: "",
+  full_description: "",
+  thumbnail_url: "",
+  logo_url: "",
+  category_slug: "",
+  domain_slug: "",
+  tags: "",
+  contact_email: "",
+  phone_number: "",
+  social_links: "",
+};
+
 function ListingForm() {
   const navigate = useNavigate();
+  const { websiteId } = useParams();
+  const isEditMode = Boolean(websiteId);
 
   const [categories, setCategories] = useState([]);
   const [domains, setDomains] = useState([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [isLoadingDomains, setIsLoadingDomains] = useState(false);
+  const [isLoadingListing, setIsLoadingListing] = useState(isEditMode);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const [form, setForm] = useState({
-    name: "",
-    url: "",
-    short_description: "",
-    full_description: "",
-    thumbnail_url: "",
-    logo_url: "",
-    category_slug: "",
-    domain_slug: "",
-    tags: "",
-    contact_email: "",
-    phone_number: "",
-    social_links: "",
-  });
+  const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -45,6 +51,51 @@ function ListingForm() {
   }, []);
 
   useEffect(() => {
+    if (!isEditMode) {
+      return;
+    }
+
+    const loadListing = async () => {
+      try {
+        const response = await api.get(`/api/v1/websites/${websiteId}`);
+        const listing = response.data;
+
+        setForm({
+          name: listing.name || "",
+          url: listing.url || "",
+          short_description: listing.short_description || "",
+          full_description: listing.full_description || "",
+          thumbnail_url: listing.thumbnail_url || "",
+          logo_url: listing.logo_url || "",
+          category_slug: listing.category_slug || "",
+          domain_slug: listing.domain_slug || "",
+          tags: listing.tags || "",
+          contact_email: listing.contact_email || "",
+          phone_number: listing.phone_number || "",
+          social_links: listing.social_links || "",
+        });
+      } catch (error) {
+        const detail = error.response?.data?.detail;
+
+        if (Array.isArray(detail)) {
+          setError(
+            detail
+              .map((item) => item.msg)
+              .filter(Boolean)
+              .join(" ")
+          );
+        } else {
+          setError(detail || "We couldn't load this listing.");
+        }
+      } finally {
+        setIsLoadingListing(false);
+      }
+    };
+
+    loadListing();
+  }, [isEditMode, websiteId]);
+
+  useEffect(() => {
     const loadDomains = async () => {
       if (!form.category_slug) {
         setDomains([]);
@@ -52,7 +103,6 @@ function ListingForm() {
       }
 
       setIsLoadingDomains(true);
-      setError("");
 
       try {
         const response = await api.get("/api/v1/domains", {
@@ -96,7 +146,11 @@ function ListingForm() {
         ])
       );
 
-      await api.post("/api/v1/websites", payload);
+      if (isEditMode) {
+        await api.patch(`/api/v1/websites/${websiteId}`, payload);
+      } else {
+        await api.post("/api/v1/websites", payload);
+      }
 
       navigate("/dashboard");
     } catch (error) {
@@ -110,12 +164,27 @@ function ListingForm() {
             .join(" ")
         );
       } else {
-        setError(detail || "We couldn't create your listing.");
+        setError(
+          detail ||
+            (isEditMode
+              ? "We couldn't update your listing."
+              : "We couldn't create your listing.")
+        );
       }
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (isEditMode && isLoadingListing) {
+    return (
+      <main className="listing-form-page">
+        <div className="listing-form-container">
+          <p>Loading your listing...</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="listing-form-page">
@@ -123,13 +192,15 @@ function ListingForm() {
         <div className="listing-form-header">
           <div>
             <Link to="/dashboard" className="listing-form-back-link">
-              ? Back to dashboard
+              ← Back to dashboard
             </Link>
 
-            <h1>Add a listing</h1>
+            <h1>{isEditMode ? "Edit listing" : "Add a listing"}</h1>
+
             <p>
-              Submit your website to DirTera. Your listing will be reviewed
-              before it appears in the directory.
+              {isEditMode
+                ? "Update your website listing information."
+                : "Submit your website to DirTera. Your listing will be reviewed before it appears in the directory."}
             </p>
           </div>
         </div>
@@ -142,7 +213,10 @@ function ListingForm() {
 
         <form className="listing-form" onSubmit={handleSubmit}>
           <section className="listing-form-section">
-            <h2>Basic information</h2>
+            <div className="listing-form-section-heading">
+              <h2>Basic information</h2>
+              <p>Tell visitors what your website is about.</p>
+            </div>
 
             <div className="listing-form-grid">
               <label className="listing-form-field">
@@ -153,7 +227,6 @@ function ListingForm() {
                   value={form.name}
                   onChange={handleChange}
                   required
-                  placeholder="e.g. Kaldi's Coffee"
                 />
               </label>
 
@@ -164,38 +237,40 @@ function ListingForm() {
                   name="url"
                   value={form.url}
                   onChange={handleChange}
-                  required
                   placeholder="https://example.com"
+                  required
+                />
+              </label>
+
+              <label className="listing-form-field listing-form-field-full">
+                <span>Short description *</span>
+                <input
+                  type="text"
+                  name="short_description"
+                  value={form.short_description}
+                  onChange={handleChange}
+                  maxLength={500}
+                  required
+                />
+              </label>
+
+              <label className="listing-form-field listing-form-field-full">
+                <span>Full description</span>
+                <textarea
+                  name="full_description"
+                  value={form.full_description}
+                  onChange={handleChange}
+                  rows={6}
                 />
               </label>
             </div>
-
-            <label className="listing-form-field">
-              <span>Short description *</span>
-              <textarea
-                name="short_description"
-                value={form.short_description}
-                onChange={handleChange}
-                required
-                rows="3"
-                placeholder="Briefly describe the website."
-              />
-            </label>
-
-            <label className="listing-form-field">
-              <span>Full description</span>
-              <textarea
-                name="full_description"
-                value={form.full_description}
-                onChange={handleChange}
-                rows="6"
-                placeholder="Give visitors more information about this website."
-              />
-            </label>
           </section>
 
           <section className="listing-form-section">
-            <h2>Category</h2>
+            <div className="listing-form-section-heading">
+              <h2>Category</h2>
+              <p>Choose the category and domain that best match your website.</p>
+            </div>
 
             <div className="listing-form-grid">
               <label className="listing-form-field">
@@ -213,7 +288,7 @@ function ListingForm() {
                   </option>
 
                   {categories.map((category) => (
-                    <option key={category.id} value={category.slug}>
+                    <option key={category.slug} value={category.slug}>
                       {category.name}
                     </option>
                   ))}
@@ -237,39 +312,41 @@ function ListingForm() {
                   </option>
 
                   {domains.map((domain) => (
-                    <option key={domain.id} value={domain.slug}>
+                    <option key={domain.slug} value={domain.slug}>
                       {domain.name}
                     </option>
                   ))}
                 </select>
               </label>
-            </div>
 
-            <label className="listing-form-field">
-              <span>Tags</span>
-              <input
-                type="text"
-                name="tags"
-                value={form.tags}
-                onChange={handleChange}
-                placeholder="coffee, restaurant, breakfast"
-              />
-              <small>Separate tags with commas.</small>
-            </label>
+              <label className="listing-form-field listing-form-field-full">
+                <span>Tags</span>
+                <input
+                  type="text"
+                  name="tags"
+                  value={form.tags}
+                  onChange={handleChange}
+                  placeholder="coffee, restaurant, food"
+                />
+                <small>Separate keywords with commas.</small>
+              </label>
+            </div>
           </section>
 
           <section className="listing-form-section">
-            <h2>Contact and media</h2>
+            <div className="listing-form-section-heading">
+              <h2>Contact information</h2>
+              <p>Optional information visitors can use to contact you.</p>
+            </div>
 
             <div className="listing-form-grid">
               <label className="listing-form-field">
-                <span>Contact email</span>
+                <span>Email</span>
                 <input
                   type="email"
                   name="contact_email"
                   value={form.contact_email}
                   onChange={handleChange}
-                  placeholder="hello@example.com"
                 />
               </label>
 
@@ -280,10 +357,29 @@ function ListingForm() {
                   name="phone_number"
                   value={form.phone_number}
                   onChange={handleChange}
-                  placeholder="+251..."
                 />
               </label>
 
+              <label className="listing-form-field listing-form-field-full">
+                <span>Social links</span>
+                <textarea
+                  name="social_links"
+                  value={form.social_links}
+                  onChange={handleChange}
+                  rows={3}
+                  placeholder='{"facebook":"https://facebook.com/example"}'
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className="listing-form-section">
+            <div className="listing-form-section-heading">
+              <h2>Images</h2>
+              <p>Add URLs for your logo and listing thumbnail.</p>
+            </div>
+
+            <div className="listing-form-grid">
               <label className="listing-form-field">
                 <span>Logo URL</span>
                 <input
@@ -306,31 +402,25 @@ function ListingForm() {
                 />
               </label>
             </div>
-
-            <label className="listing-form-field">
-              <span>Social links</span>
-              <textarea
-                name="social_links"
-                value={form.social_links}
-                onChange={handleChange}
-                rows="4"
-                placeholder='{"facebook":"https://facebook.com/example","instagram":"https://instagram.com/example"}'
-              />
-              <small>Enter social links as JSON.</small>
-            </label>
           </section>
 
           <div className="listing-form-actions">
-            <Link to="/dashboard" className="listing-form-cancel">
+            <Link to="/dashboard" className="listing-form-secondary-button">
               Cancel
             </Link>
 
             <button
               type="submit"
-              className="listing-form-submit"
+              className="listing-form-primary-button"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Submitting..." : "Submit listing"}
+              {isSubmitting
+                ? isEditMode
+                  ? "Saving..."
+                  : "Submitting..."
+                : isEditMode
+                  ? "Save changes"
+                  : "Submit listing"}
             </button>
           </div>
         </form>
@@ -340,5 +430,3 @@ function ListingForm() {
 }
 
 export default ListingForm;
-
-

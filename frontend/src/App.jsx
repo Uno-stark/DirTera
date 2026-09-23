@@ -1,3 +1,4 @@
+
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import Home from "./pages/Home";
@@ -20,7 +21,7 @@ function App() {
 
         <Route path="/register" element={<Register />} />
 
-         <Route path="/auth/callback" element={<GoogleCallback />} />
+        <Route path="/auth/callback" element={<GoogleCallback />} />
 
         <Route
           path="/businesses/:websiteId"
@@ -31,6 +32,10 @@ function App() {
           <Route path="/account" element={<Account />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/listings/new" element={<ListingForm />} />
+          <Route
+            path="/dashboard/listings/:websiteId/edit"
+            element={<ListingForm />}
+          />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -40,4 +45,3 @@ function App() {
 }
 
 export default App;
-
