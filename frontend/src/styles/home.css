@@ -1,0 +1,49 @@
+.home-hero {
+  padding: 90px 20px 100px;
+  background: #f7f8fa;
+}
+
+.home-container {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  text-align: center;
+}
+
+.hero-label {
+  margin: 0 0 14px;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.home-hero h1 {
+  max-width: 680px;
+  margin: 0 auto 18px;
+  color: #111827;
+  font-size: 46px;
+  line-height: 1.12;
+  letter-spacing: -1.5px;
+}
+
+.hero-description {
+  max-width: 560px;
+  margin: 0 auto;
+  color: #6b7280;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .home-hero {
+    padding: 70px 20px 80px;
+  }
+
+  .home-hero h1 {
+    font-size: 34px;
+    letter-spacing: -1px;
+  }
+
+  .hero-description {
+    font-size: 16px;
+  }
+}
