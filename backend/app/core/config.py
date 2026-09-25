@@ -22,9 +22,6 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"  # development | production
 
     # ── CORS ─────────────────────────────────────────────────────────────────
-    # Stored as a plain string in .env — comma-separated or JSON array both work:
-    #   ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
-    #   ALLOWED_ORIGINS=["http://localhost:3000","http://localhost:5173"]
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
     @property
