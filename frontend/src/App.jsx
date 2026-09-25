@@ -3,7 +3,6 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import Home from "./pages/Home";
 import Login from "./pages/Login";
-import GoogleCallback from "./pages/GoogleCallback";
 import Register from "./pages/Register";
 import Account from "./pages/Account";
 import BusinessDetail from "./pages/BusinessDetail";
@@ -19,8 +18,6 @@ function App() {
         <Route path="/" element={<Home />} />
 
         <Route path="/login" element={<Login />} />
-
-        <Route path="/auth/callback" element={<GoogleCallback />} />
 
         <Route path="/register" element={<Register />} />
 
