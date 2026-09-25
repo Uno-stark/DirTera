@@ -11,22 +11,32 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import settings
 
-# ── Engine ────────────────────────────────────────────────────────────────────
-_connect_args: dict = {}
-if settings.DATABASE_URL.startswith("sqlite"):
-    # SQLite needs check_same_thread disabled
-    _connect_args = {"check_same_thread": False}
+_is_sqlite   = settings.DATABASE_URL.startswith("sqlite")
+_is_postgres = settings.DATABASE_URL.startswith("postgresql")
 
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    connect_args=_connect_args,
-    # pool settings are ignored by SQLite but used by Postgres
-    pool_size=settings.DB_POOL_SIZE if not settings.DATABASE_URL.startswith("sqlite") else 5,
-    max_overflow=settings.DB_MAX_OVERFLOW if not settings.DATABASE_URL.startswith("sqlite") else 0,
-    pool_recycle=settings.DB_POOL_RECYCLE,
-    pool_pre_ping=True,
-)
+_engine_kwargs: dict = {
+    "echo": settings.DEBUG,
+    "pool_pre_ping": True,
+}
+
+if _is_sqlite:
+    _engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+   
+    _using_pooler = _is_postgres and ":6543/" in settings.DATABASE_URL
+    if _using_pooler:
+        _engine_kwargs["pool_size"]    = 1
+        _engine_kwargs["max_overflow"] = 0
+    else:
+        _engine_kwargs["pool_size"]    = settings.DB_POOL_SIZE
+        _engine_kwargs["max_overflow"] = settings.DB_MAX_OVERFLOW
+        _engine_kwargs["pool_recycle"] = settings.DB_POOL_RECYCLE
+
+    # SSL: direct Supabase connection only (not pooler)
+    if _is_postgres and not _using_pooler:
+        _engine_kwargs["connect_args"] = {"ssl": "require"}
+
+engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
