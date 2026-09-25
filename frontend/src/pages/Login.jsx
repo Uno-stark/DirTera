@@ -36,7 +36,7 @@ function Login() {
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("refresh_token", data.refresh_token);
 
-      navigate("/");
+      navigate("/account");
     } catch (error) {
       setError(
         error.response?.data?.detail ||
@@ -57,6 +57,18 @@ function Login() {
 
           <h1>Welcome back</h1>
           <p>Sign in to continue to your account.</p>
+        </div>
+
+        <button
+          type="button"
+          className="google-button"
+          onClick={startGoogleLogin}
+        >
+          Continue with Google
+        </button>
+
+        <div className="auth-divider">
+          <span>or</span>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
@@ -127,4 +139,3 @@ function Login() {
 }
 
 export default Login;
-
