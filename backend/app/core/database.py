@@ -21,19 +21,18 @@ _engine_kwargs: dict = {
 
 if _is_sqlite:
     _engine_kwargs["connect_args"] = {"check_same_thread": False}
-else:
-   
-    _using_pooler = _is_postgres and ":6543/" in settings.DATABASE_URL
+
+elif _is_postgres:
+    _using_pooler = ":6543/" in settings.DATABASE_URL
+
     if _using_pooler:
         _engine_kwargs["pool_size"]    = 1
         _engine_kwargs["max_overflow"] = 0
+        _engine_kwargs["connect_args"] = {"statement_cache_size": 0}
     else:
         _engine_kwargs["pool_size"]    = settings.DB_POOL_SIZE
         _engine_kwargs["max_overflow"] = settings.DB_MAX_OVERFLOW
         _engine_kwargs["pool_recycle"] = settings.DB_POOL_RECYCLE
-
-    # SSL: direct Supabase connection only (not pooler)
-    if _is_postgres and not _using_pooler:
         _engine_kwargs["connect_args"] = {"ssl": "require"}
 
 engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
@@ -46,13 +45,11 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
-# ── Base ──────────────────────────────────────────────────────────────────────
 class Base(DeclarativeBase):
     """All models inherit from this."""
     pass
 
 
-# ── Dependency ────────────────────────────────────────────────────────────────
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency — yields a DB session per request."""
     async with AsyncSessionLocal() as session:
