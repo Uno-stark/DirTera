@@ -8,7 +8,7 @@ from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.base import TimestampMixin, ULIDPrimaryKey
+from app.models.base import PgEnum, TimestampMixin, ULIDPrimaryKey
 
 
 class SubscriptionPlan(str, enum.Enum):
@@ -38,13 +38,13 @@ class Subscription(ULIDPrimaryKey, TimestampMixin, Base):
 
     # ── Plan details ──────────────────────────────────────────────────────────
     plan: Mapped[SubscriptionPlan] = mapped_column(
-        Enum(SubscriptionPlan), nullable=False, default=SubscriptionPlan.BASIC
+        PgEnum(SubscriptionPlan), default=SubscriptionPlan.BASIC
     )
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(10), default="ETB", nullable=False)
 
     status: Mapped[SubscriptionStatus] = mapped_column(
-        Enum(SubscriptionStatus), nullable=False, default=SubscriptionStatus.PENDING, index=True
+        PgEnum(SubscriptionStatus), default=SubscriptionStatus.PENDING, index=True
     )
 
     # ── links.et receipt reference ────────────────────────────────────────────
