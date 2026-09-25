@@ -11,13 +11,7 @@ function GoogleCallback() {
     const refreshToken = searchParams.get("refresh_token");
 
     if (!accessToken || !refreshToken) {
- feat/public-auth
-      navigate("/login?error=google_login_failed", {
-        replace: true,
-      });
-
       navigate("/login?error=google_login_failed", { replace: true });
- dev
       return;
     }
 
@@ -31,14 +25,7 @@ function GoogleCallback() {
       } catch {
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
- feat/public-auth
-
-        navigate("/login?error=google_login_failed", {
-          replace: true,
-        });
-
         navigate("/login?error=google_login_failed", { replace: true });
- dev
       }
     };
 
@@ -50,23 +37,11 @@ function GoogleCallback() {
       <section className="auth-card">
         <div className="auth-header">
           <h1>Signing you in...</h1>
- feat/public-auth
-
-          <p>
-            Please wait while we complete your Google sign-in.
-          </p>
-
           <p>Please wait while we complete your Google sign-in.</p>
- dev
         </div>
       </section>
     </main>
   );
 }
 
- feat/public-auth
 export default GoogleCallback;
-
-
-export default GoogleCallback;
- dev
