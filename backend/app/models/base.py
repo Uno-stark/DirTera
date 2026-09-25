@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 def new_ulid() -> str:
     """Generate a new ULID string. Used as the default factory for all PKs."""
-    return str(ulid_lib.ULID())
+    return str(ulid_lib.new())
 
 
 class ULIDPrimaryKey:
@@ -39,3 +39,4 @@ class TimestampMixin:
         onupdate=func.now(),
         nullable=False,
     )
+

@@ -38,6 +38,25 @@ else:
 
 engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
 
+# Engine
+if settings.DATABASE_URL.startswith("sqlite"):
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=settings.DEBUG,
+        connect_args={"check_same_thread": False},
+    )
+else:
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=settings.DEBUG,
+        pool_size=settings.DB_POOL_SIZE,
+        max_overflow=settings.DB_MAX_OVERFLOW,
+        pool_recycle=settings.DB_POOL_RECYCLE,
+        pool_pre_ping=True,
+    )
+
+
+# Database session
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
     expire_on_commit=False,
@@ -46,13 +65,13 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
-# ── Base ──────────────────────────────────────────────────────────────────────
+# Base
 class Base(DeclarativeBase):
     """All models inherit from this."""
     pass
 
 
-# ── Dependency ────────────────────────────────────────────────────────────────
+# Dependency
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency — yields a DB session per request."""
     async with AsyncSessionLocal() as session:
