@@ -9,10 +9,11 @@ from passlib.context import CryptContext
 
 from app.core.config import settings
 
+class _About:
+    __version__ = _bcrypt_module.__version__
 
-    class _About:
-        __version__ = _bcrypt_module.__version__
-    _bcrypt_module.__about__ = _About()
+
+_bcrypt_module.__about__ = _About()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
