@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import bcrypt as _bcrypt_module
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -7,6 +8,11 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.core.config import settings
+
+
+    class _About:
+        __version__ = _bcrypt_module.__version__
+    _bcrypt_module.__about__ = _About()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

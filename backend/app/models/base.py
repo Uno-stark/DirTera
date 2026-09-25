@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import ulid as ulid_lib
+from ulid import ULID
 from sqlalchemy import DateTime, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 
 def new_ulid() -> str:
     """Generate a new ULID string. Used as the default factory for all PKs."""
-    return str(ulid_lib.new())
+    return str(ULID())
 
 
 class ULIDPrimaryKey:
