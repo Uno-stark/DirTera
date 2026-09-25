@@ -12,12 +12,7 @@ from app.core.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Startup / shutdown logic.
-    On startup we could run Alembic migrations programmatically,
-    but the recommended practice is to run `alembic upgrade head`
-    as part of your deploy step.
-    """
+
     yield
 
 
@@ -38,7 +33,7 @@ def create_app() -> FastAPI:
     # ── Middleware ────────────────────────────────────────────────────────────
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS,
+        allow_origins=settings.allowed_origins_list,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

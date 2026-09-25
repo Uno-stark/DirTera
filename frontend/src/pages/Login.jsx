@@ -117,6 +117,18 @@ function Login() {
           </button>
         </form>
 
+        <div className="auth-divider">
+          <span>or</span>
+        </div>
+
+        <button
+          type="button"
+          className="google-button"
+          onClick={startGoogleLogin}
+        >
+          Continue with Google
+        </button>
+
         <p className="auth-footer">
           Don't have an account?{" "}
           <Link to="/register">Create an account</Link>

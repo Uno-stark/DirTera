@@ -17,7 +17,6 @@ from app.schemas.subscription import (
     LinksETHealthFiltered,
     LinksETHealthResponse,
     LinksETVerifyResponse,
-    SubscribeRequest,
     SubscriptionOut,
     VerifyPaymentRequest,
     VerifyPaymentResponse,
