@@ -15,7 +15,7 @@ function AdminLayout() {
 
   if (isLoading) return <p>Loading...</p>;
 
-  if (!user || user.role !== "admin") {
+  if (!user || !user.is_admin) {
     return <Navigate to="/" replace />;
   }
 
