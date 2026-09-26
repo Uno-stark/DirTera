@@ -8,7 +8,7 @@ alembic==1.13.2
 
 # DB drivers
 asyncpg==0.29.0            # PostgreSQL / Supabase 
-# psycopg[binary,pool]==3.1.19   # alternative Postgres driver
+psycopg[binary]   # alternative Postgres driver
 
 # Config & validation 
 pydantic==2.8.2

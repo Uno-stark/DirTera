@@ -47,7 +47,7 @@ async def google_callback_redirect(code: str, db: DBSession):
     (Alternatively use POST /auth/google/callback from the frontend SPA.)
     """
     _, tokens = await auth_service.google_login_or_register(code=code, db=db)
-    frontend_url = settings.ALLOWED_ORIGINS[0]
+    frontend_url = settings.allowed_origins_list[0]
     return RedirectResponse(
         url=f"{frontend_url}/auth/callback"
         f"?access_token={tokens.access_token}"
