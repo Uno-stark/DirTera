@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Check, Minus } from "lucide-react";
 import api from "../../api/client";
 
 function Users() {
@@ -88,8 +89,8 @@ function Users() {
                   <tr key={u.id}>
                     <td>{u.full_name || <span style={{ color: "#9ca3af" }}>—</span>}</td>
                     <td>{u.email}</td>
-                    <td>{u.is_active ? "✓" : "—"}</td>
-                    <td>{u.is_verified ? "✓" : "—"}</td>
+                    <td>{u.is_active ? <Check size={14} /> : <Minus size={14} color="#9ca3af" />}</td>
+                    <td>{u.is_verified ? <Check size={14} /> : <Minus size={14} color="#9ca3af" />}</td>
                     <td>
                       <span className={`admin-badge ${u.is_admin ? "admin-badge-admin" : "admin-badge-user"}`}>
                         {u.is_admin ? "Admin" : "User"}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Check, Minus } from "lucide-react";
 import api from "../../api/client";
 
 const STATUS_OPTIONS = ["", "pending", "approved", "rejected"];
@@ -189,8 +190,8 @@ function Websites() {
                     <td>
                       <span className={statusBadgeClass(site.status)}>{site.status}</span>
                     </td>
-                    <td>{site.is_premiered ? "✓" : "—"}</td>
-                    <td>{site.is_verified ? "✓" : "—"}</td>
+                    <td>{site.is_premiered ? <Check size={14} /> : <Minus size={14} color="#9ca3af" />}</td>
+                    <td>{site.is_verified ? <Check size={14} /> : <Minus size={14} color="#9ca3af" />}</td>
                     <td>
                       <div className="admin-action-row">
                         {site.status !== "approved" && (

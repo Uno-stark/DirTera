@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Check, Minus } from "lucide-react";
 import api from "../../api/client";
 
 const EMPTY_FORM = {
@@ -151,12 +152,12 @@ function Categories() {
 
           <div className="admin-form-row">
             <label>
-              Icon (emoji)
+              Icon
               <input
                 name="icon"
                 value={createForm.icon}
                 onChange={handleCreateChange}
-                placeholder="e.g. 🚚"
+                placeholder="e.g. truck"
               />
             </label>
             <label>
@@ -219,7 +220,7 @@ function Categories() {
                     <td>{cat.name}</td>
                     <td>{cat.description}</td>
                     <td>{cat.sort_order}</td>
-                    <td>{cat.is_active ? "✓" : "—"}</td>
+                    <td>{cat.is_active ? <Check size={14} /> : <Minus size={14} color="#9ca3af" />}</td>
                     <td>
                       <button
                         className="admin-button-sm"
@@ -243,12 +244,12 @@ function Categories() {
             <h2>Edit "{editTarget.name}"</h2>
             <form className="admin-form" onSubmit={handleUpdate}>
               <label>
-                Icon (emoji)
+                Icon
                 <input
                   name="icon"
                   value={editForm.icon}
                   onChange={handleEditChange}
-                  placeholder="e.g. 💻"
+                  placeholder="e.g. laptop"
                 />
               </label>
               <label>
