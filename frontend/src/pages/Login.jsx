@@ -38,11 +38,10 @@ function Login() {
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("refresh_token", data.refresh_token);
 
-      // fetch the user profile so we can route based on role
-      const { data: me } = await api.get("/api/v1/auth/me");
-      setUser(me);
+      const { data: user } = await api.get("/api/v1/auth/me");
+      setUser(user);
 
-      navigate(me.is_admin ? "/admin/dashboard" : "/");
+      navigate(user.is_admin ? "/admin/dashboard" : "/dashboard");
     } catch (error) {
       setError(
         error.response?.data?.detail ||
