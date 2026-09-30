@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import api from "../api/client";
-import "../styles/dashboard.css";
+import api from "../../api/client";
+import "../../styles/dashboard.css";
 
 function Dashboard() {
   const [listings, setListings] = useState([]);
@@ -136,4 +136,3 @@ function Dashboard() {
 }
 
 export default Dashboard;
-
