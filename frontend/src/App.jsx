@@ -10,6 +10,12 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import GoogleCallback from "./pages/GoogleCallback";
 import Dashboard from "./pages/Dashboard";
 import ListingForm from "./pages/ListingForm";
+import AdminLayout from "./pages/Admin/AdminLayout";
+import AdminDashboard from "./pages/Admin/AdminDashboard";
+import Categories from "./pages/Admin/Categories";
+import Domains from "./pages/Admin/Domains";
+import AdminWebsites from "./pages/Admin/Websites";
+import Users from "./pages/Admin/Users";
 
 function App() {
   return (
@@ -19,9 +25,11 @@ function App() {
 
         <Route path="/login" element={<Login />} />
 
+        <Route path="/auth/callback" element={<GoogleCallback />} />
+
         <Route path="/register" element={<Register />} />
 
-        <Route path="/auth/callback" element={<GoogleCallback />} />
+        
 
         <Route
           path="/businesses/:websiteId"
@@ -36,6 +44,15 @@ function App() {
             path="/dashboard/listings/:websiteId/edit"
             element={<ListingForm />}
           />
+
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="categories" element={<Categories />} />
+            <Route path="domains" element={<Domains />} />
+            <Route path="websites" element={<AdminWebsites />} />
+            <Route path="users" element={<Users />} />
+          </Route>
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,10 +1,12 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 function GoogleCallback() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { setUser } = useAuth();
 
   useEffect(() => {
     const accessToken = searchParams.get("access_token");
@@ -20,7 +22,8 @@ function GoogleCallback() {
 
     const loadUser = async () => {
       try {
-        await api.get("/api/v1/auth/me");
+        const { data } = await api.get("/api/v1/auth/me");
+        setUser(data);
         navigate("/account", { replace: true });
       } catch {
         localStorage.removeItem("access_token");
