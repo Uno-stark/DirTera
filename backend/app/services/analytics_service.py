@@ -52,13 +52,35 @@ async def get_click_stats(
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Website not found")
 
     now = datetime.now(timezone.utc)
-    if end_date is None:
-        end_date = now.date()
+
+    # end_date to today
+    end_date = now.date()
+
+    # start_date defaults to the date the website was created (all-time)
+    # so omitting dates returns every click ever recorded for this website
     if start_date is None:
-        start_date = end_date - timedelta(days=29)
+        start_date = website.created_at.date() if website.created_at else date(2000, 1, 1)
+
+    # Guard against inverted range
+    if start_date > end_date:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=f"start_date ({start_date}) must be on or before end_date ({end_date}).",
+        )
+
+    # Guard against start_date before the website was created
+    created_date = website.created_at.date() if website.created_at else date(2000, 1, 1)
+    if start_date < created_date:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"start_date ({start_date}) cannot be before the listing's "
+                f"creation date ({created_date})."
+            ),
+        )
 
     start_dt = datetime.combine(start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
-    end_dt = datetime.combine(end_date, datetime.max.time()).replace(tzinfo=timezone.utc)
+    end_dt   = datetime.combine(end_date,   datetime.max.time()).replace(tzinfo=timezone.utc)
 
     result = await db.execute(
         select(
