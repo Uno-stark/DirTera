@@ -5,41 +5,41 @@ import "../../styles/dashboard.css";
 
 function Dashboard() {
   const [listings, setListings] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const loadListings = async () => {
+    const loadData = async () => {
       try {
-        const { data } = await api.get("/api/v1/websites/my");
-        setListings(data.items || []);
-      } catch (error) {
+        const [listingsRes, notifRes] = await Promise.all([
+          api.get("/api/v1/websites/my"),
+          api.get("/api/v1/notifications", {
+            params: { page: 1, page_size: 1, unread_only: true },
+          }),
+        ]);
+
+        setListings(listingsRes.data.items || []);
+        setUnreadCount(notifRes.data.total || 0);
+      } catch (err) {
         setError(
-          error.response?.data?.detail ||
-            "We couldn't load your listings."
+          err.response?.data?.detail || "We couldn't load your dashboard."
         );
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadListings();
+    loadData();
   }, []);
 
-  const pendingCount = listings.filter(
-    (listing) => listing.status === "pending"
-  ).length;
-
-  const approvedCount = listings.filter(
-    (listing) => listing.status === "approved"
-  ).length;
-
-  const rejectedCount = listings.filter(
-    (listing) => listing.status === "rejected"
-  ).length;
+  const pendingCount = listings.filter((l) => l.status === "pending").length;
+  const approvedCount = listings.filter((l) => l.status === "approved").length;
+  const rejectedCount = listings.filter((l) => l.status === "rejected").length;
 
   return (
     <main className="dashboard-page">
+      {/* ── Header ─────────────────────────────────────────────────────── */}
       <header className="dashboard-header">
         <div>
           <Link to="/" className="dashboard-logo">
@@ -49,11 +49,24 @@ function Dashboard() {
           <p>Manage your website listings and track their performance.</p>
         </div>
 
-        <Link to="/dashboard/listings/new" className="dashboard-primary-button">
-          Add listing
-        </Link>
+        <div className="dashboard-header-actions">
+          <Link
+            to="/notifications"
+            className="dashboard-secondary-button dashboard-notif-link"
+          >
+            Notifications
+            {unreadCount > 0 && (
+              <span className="dashboard-notif-badge">{unreadCount}</span>
+            )}
+          </Link>
+
+          <Link to="/dashboard/listings/new" className="dashboard-primary-button">
+            Add listing
+          </Link>
+        </div>
       </header>
 
+      {/* ── Stats ──────────────────────────────────────────────────────── */}
       <section className="dashboard-stats">
         <div className="dashboard-stat-card">
           <span>Total listings</span>
@@ -76,6 +89,7 @@ function Dashboard() {
         </div>
       </section>
 
+      {/* ── Listings ───────────────────────────────────────────────────── */}
       <section className="dashboard-section">
         <div className="dashboard-section-header">
           <div>
@@ -86,7 +100,7 @@ function Dashboard() {
 
         {isLoading && <p>Loading your listings...</p>}
 
-        {error && (
+        {!isLoading && error && (
           <p className="dashboard-error" role="alert">
             {error}
           </p>
@@ -109,23 +123,50 @@ function Dashboard() {
           <div className="dashboard-listings">
             {listings.map((listing) => (
               <article key={listing.id} className="dashboard-listing-card">
-                <div>
-                  <h3>{listing.name}</h3>
-                  <p>{listing.short_description}</p>
+                <div className="dashboard-listing-info">
+                  {listing.thumbnail_url && (
+                    <img
+                      src={listing.thumbnail_url}
+                      alt=""
+                      className="dashboard-listing-thumb"
+                    />
+                  )}
 
-                  <div className="dashboard-listing-meta">
-                    <span>Status: {listing.status}</span>
-                    <span>Clicks: {listing.total_clicks}</span>
-                    <span>Rating: {listing.avg_rating}</span>
+                  <div>
+                    <h3>{listing.name}</h3>
+                    <p>{listing.short_description}</p>
+
+                    <div className="dashboard-listing-meta">
+                      <span
+                        className={`dashboard-status-badge dashboard-status-${listing.status}`}
+                      >
+                        {listing.status}
+                      </span>
+                      <span>{listing.total_clicks} clicks</span>
+                      {listing.avg_rating > 0 && (
+                        <span>★ {listing.avg_rating.toFixed(1)}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <Link
-                  to={`/dashboard/listings/${listing.id}/edit`}
-                  className="dashboard-secondary-button"
-                >
-                  Edit
-                </Link>
+                <div className="dashboard-listing-actions">
+                  {listing.status === "approved" && (
+                    <Link
+                      to={`/analytics/${listing.id}`}
+                      className="dashboard-secondary-button"
+                    >
+                      Analytics
+                    </Link>
+                  )}
+
+                  <Link
+                    to={`/dashboard/listings/${listing.id}/edit`}
+                    className="dashboard-secondary-button"
+                  >
+                    Edit
+                  </Link>
+                </div>
               </article>
             ))}
           </div>
