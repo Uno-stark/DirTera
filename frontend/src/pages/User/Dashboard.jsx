@@ -51,6 +51,13 @@ function Dashboard() {
 
         <div className="dashboard-header-actions">
           <Link
+            to="/subscriptions"
+            className="dashboard-secondary-button"
+          >
+            Subscriptions
+          </Link>
+
+          <Link
             to="/notifications"
             className="dashboard-secondary-button dashboard-notif-link"
           >
@@ -157,6 +164,15 @@ function Dashboard() {
                       className="dashboard-secondary-button"
                     >
                       Analytics
+                    </Link>
+                  )}
+
+                  {listing.status === "approved" && (
+                    <Link
+                      to={`/subscribe/${listing.id}`}
+                      className="dashboard-secondary-button"
+                    >
+                      Subscribe
                     </Link>
                   )}
 
