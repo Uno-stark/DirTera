@@ -13,6 +13,8 @@ import Dashboard from "./pages/User/Dashboard";
 import ListingForm from "./pages/User/ListingForm";
 import Notifications from "./pages/User/Notifications";
 import Analytics from "./pages/User/Analytics";
+import Subscribe from "./pages/User/Subscribe";
+import Subscriptions from "./pages/User/Subscriptions";
 
 // Admin pages
 import AdminLayout from "./pages/Admin/AdminLayout";
@@ -49,6 +51,8 @@ function App() {
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/analytics/:websiteId" element={<Analytics />} />
+          <Route path="/subscribe/:websiteId" element={<Subscribe />} />
+          <Route path="/subscriptions" element={<Subscriptions />} />
 
           {/* ── Admin ──────────────────────────────────────────────────── */}
           <Route path="/admin" element={<AdminLayout />}>
