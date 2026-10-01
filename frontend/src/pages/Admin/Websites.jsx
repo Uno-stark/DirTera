@@ -1,16 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Check, Minus } from "lucide-react";
 import api from "../../api/client";
 
-const STATUS_OPTIONS = ["", "pending", "approved", "rejected"];
-
 function Websites() {
+  const [searchParams] = useSearchParams();
+
+  const status = searchParams.get("status") || "";
+const premiered = searchParams.get("premiered") === "true";
+
   const [websites, setWebsites] = useState([]);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("pending");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const debounceRef = useRef(null);
 
   // reject modal
   const [rejectTarget, setRejectTarget] = useState(null);
@@ -20,23 +21,45 @@ function Websites() {
 
   // admin flags modal
   const [flagTarget, setFlagTarget] = useState(null);
-  const [flags, setFlags] = useState({ is_premiered: false, is_verified: false });
+  const [flags, setFlags] = useState({
+    is_premiered: false,
+    is_verified: false,
+  });
   const [savingFlags, setSavingFlags] = useState(false);
   const [flagError, setFlagError] = useState("");
 
   const [actingId, setActingId] = useState(null);
 
-  const loadWebsites = async (q = search, st = statusFilter) => {
+  const loadWebsites = async () => {
     setIsLoading(true);
     setError("");
+
     try {
       const params = {};
-      if (q) params.search = q;
-      if (st) params.status = st;
-      const { data } = await api.get("/api/v1/websites/admin/all", { params });
-      setWebsites(data.items ?? data);
+
+      if (status) {
+        params.status = status;
+      }
+      if (premiered) {
+  params.is_premiered = true;
+}
+      const { data } = await api.get(
+        "/api/v1/websites/admin/all",
+        { params }
+      );
+
+     const websiteList = data.items ?? data;
+
+const filteredWebsites = premiered
+  ? websiteList.filter((site) => site.is_premiered === true)
+  : websiteList;
+
+setWebsites(filteredWebsites);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to load websites.");
+      setError(
+        err.response?.data?.detail ||
+          "Failed to load websites."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -44,28 +67,21 @@ function Websites() {
 
   useEffect(() => {
     loadWebsites();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
-
-  const handleSearch = (e) => {
-    const value = e.target.value;
-    setSearch(value);
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => loadWebsites(value, statusFilter), 350);
-  };
-
-  const handleStatusChange = (e) => {
-    setStatusFilter(e.target.value);
-  };
+  }, [status, premiered]);
 
   // --- Approve ---
   const approve = async (site) => {
     setActingId(site.id);
+
     try {
-      const { data } = await api.post(`/api/v1/websites/${site.id}/approve`);
-      setWebsites((prev) => prev.map((w) => (w.id === site.id ? { ...w, status: data.status } : w)));
+      await api.post(`/api/v1/websites/${site.id}/approve`);
+
+      await loadWebsites();
     } catch (err) {
-      alert(err.response?.data?.detail || "Failed to approve.");
+      alert(
+        err.response?.data?.detail ||
+          "Failed to approve."
+      );
     } finally {
       setActingId(null);
     }
@@ -80,20 +96,31 @@ function Websites() {
 
   const confirmReject = async (e) => {
     e.preventDefault();
+
     if (!rejectionMessage.trim()) {
       setRejectError("Rejection message is required.");
       return;
     }
+
     setRejecting(true);
     setRejectError("");
+
     try {
-      const { data } = await api.post(`/api/v1/websites/${rejectTarget.id}/reject`, {
-        rejection_message: rejectionMessage,
-      });
-      setWebsites((prev) => prev.map((w) => (w.id === rejectTarget.id ? { ...w, status: data.status } : w)));
+      await api.post(
+        `/api/v1/websites/${rejectTarget.id}/reject`,
+        {
+          rejection_message: rejectionMessage,
+        }
+      );
+
       setRejectTarget(null);
+
+      await loadWebsites();
     } catch (err) {
-      setRejectError(err.response?.data?.detail || "Failed to reject.");
+      setRejectError(
+        err.response?.data?.detail ||
+          "Failed to reject."
+      );
     } finally {
       setRejecting(false);
     }
@@ -102,69 +129,99 @@ function Websites() {
   // --- Admin flags modal ---
   const openFlags = (site) => {
     setFlagTarget(site);
-    setFlags({ is_premiered: site.is_premiered, is_verified: site.is_verified });
+
+    setFlags({
+      is_premiered: site.is_premiered,
+      is_verified: site.is_verified,
+    });
+
     setFlagError("");
   };
 
   const saveFlags = async (e) => {
     e.preventDefault();
+
     setSavingFlags(true);
     setFlagError("");
+
     try {
-      const { data } = await api.patch(`/api/v1/websites/${flagTarget.id}/admin`, flags);
+      const { data } = await api.patch(
+        `/api/v1/websites/${flagTarget.id}/admin`,
+        flags
+      );
+
       setWebsites((prev) =>
         prev.map((w) =>
           w.id === flagTarget.id
-            ? { ...w, is_premiered: data.is_premiered, is_verified: data.is_verified }
+            ? {
+                ...w,
+                is_premiered: data.is_premiered,
+                is_verified: data.is_verified,
+              }
             : w
         )
       );
+
       setFlagTarget(null);
     } catch (err) {
-      setFlagError(err.response?.data?.detail || "Failed to update flags.");
+      setFlagError(
+        err.response?.data?.detail ||
+          "Failed to update flags."
+      );
     } finally {
       setSavingFlags(false);
     }
   };
 
   const statusBadgeClass = (status) => {
-    if (status === "approved") return "admin-badge admin-badge-approved";
-    if (status === "rejected") return "admin-badge admin-badge-rejected";
+    if (status === "approved") {
+      return "admin-badge admin-badge-approved";
+    }
+
+    if (status === "rejected") {
+      return "admin-badge admin-badge-rejected";
+    }
+
     return "admin-badge admin-badge-pending";
+  };
+
+  const getPageTitle = () => {
+    if (status === "approved") return "Approved Websites";
+    if (status === "pending") return "Pending Websites";
+    if (status === "rejected") return "Rejected Websites";
+
+    return "Websites";
   };
 
   return (
     <div className="admin-page">
-      <h1 className="admin-page-title">Websites</h1>
+      <h1 className="admin-page-title">
+        {getPageTitle()}
+      </h1>
 
-      <div className="admin-card">
-        <div className="admin-form-row" style={{ marginBottom: 0 }}>
-          <input
-            className="admin-search"
-            type="search"
-            placeholder="Search by name or URL…"
-            value={search}
-            onChange={handleSearch}
-          />
-          <select className="admin-select" value={statusFilter} onChange={handleStatusChange}>
-            <option value="">All statuses</option>
-            {STATUS_OPTIONS.filter(Boolean).map((s) => (
-              <option key={s} value={s}>
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-              </option>
-            ))}
-          </select>
+      {error && (
+        <p className="admin-error">
+          {error}
+        </p>
+      )}
+
+      {isLoading && (
+        <p style={{ color: "#6b7280" }}>
+          Loading websites…
+        </p>
+      )}
+
+      {!isLoading && !error && websites.length === 0 && (
+        <div className="admin-card">
+          <p className="admin-empty">
+            No websites found.
+          </p>
         </div>
+      )}
 
-        {error && <p className="admin-error" style={{ marginTop: 16 }}>{error}</p>}
-        {isLoading && <p style={{ marginTop: 16, color: "#6b7280" }}>Loading…</p>}
-
-        {!isLoading && !error && websites.length === 0 && (
-          <p className="admin-empty" style={{ marginTop: 16 }}>No websites found.</p>
-        )}
-
-        {!isLoading && websites.length > 0 && (
-          <div className="admin-table-wrapper" style={{ marginTop: 20 }}>
+      {!isLoading && websites.length > 0 && (
+        <div className="admin-card">
+          <div className="admin-table-wrapper">
             <table className="admin-table">
               <thead>
                 <tr>
@@ -177,43 +234,93 @@ function Websites() {
                   <th>Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {websites.map((site) => (
                   <tr key={site.id}>
                     <td>
-                      <a href={site.url} target="_blank" rel="noreferrer" className="admin-link">
+                      <a
+                        href={site.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="admin-link"
+                      >
                         {site.name}
                       </a>
                     </td>
-                    <td>{site.owner?.email ?? "—"}</td>
-                    <td>{site.category_slug ?? "—"}</td>
+
                     <td>
-                      <span className={statusBadgeClass(site.status)}>{site.status}</span>
+                      {site.owner?.email ?? "—"}
                     </td>
-                    <td>{site.is_premiered ? <Check size={14} /> : <Minus size={14} color="#9ca3af" />}</td>
-                    <td>{site.is_verified ? <Check size={14} /> : <Minus size={14} color="#9ca3af" />}</td>
+
+                    <td>
+                      {site.category_slug ?? "—"}
+                    </td>
+
+                    <td>
+                      <span
+                        className={statusBadgeClass(
+                          site.status
+                        )}
+                      >
+                        {site.status}
+                      </span>
+                    </td>
+
+                    <td>
+                      {site.is_premiered ? (
+                        <Check size={14} />
+                      ) : (
+                        <Minus
+                          size={14}
+                          color="#9ca3af"
+                        />
+                      )}
+                    </td>
+
+                    <td>
+                      {site.is_verified ? (
+                        <Check size={14} />
+                      ) : (
+                        <Minus
+                          size={14}
+                          color="#9ca3af"
+                        />
+                      )}
+                    </td>
+
                     <td>
                       <div className="admin-action-row">
                         {site.status !== "approved" && (
                           <button
                             className="admin-button-sm admin-button-green"
-                            disabled={actingId === site.id}
-                            onClick={() => approve(site)}
+                            disabled={
+                              actingId === site.id
+                            }
+                            onClick={() =>
+                              approve(site)
+                            }
                           >
                             Approve
                           </button>
                         )}
+
                         {site.status !== "rejected" && (
                           <button
                             className="admin-button-sm admin-button-red"
-                            onClick={() => openReject(site)}
+                            onClick={() =>
+                              openReject(site)
+                            }
                           >
                             Reject
                           </button>
                         )}
+
                         <button
                           className="admin-button-sm"
-                          onClick={() => openFlags(site)}
+                          onClick={() =>
+                            openFlags(site)
+                          }
                         >
                           Flags
                         </button>
@@ -224,32 +331,70 @@ function Websites() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Reject modal */}
       {rejectTarget && (
-        <div className="admin-modal-backdrop" onClick={() => setRejectTarget(null)}>
-          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Reject "{rejectTarget.name}"</h2>
-            <form className="admin-form" onSubmit={confirmReject}>
+        <div
+          className="admin-modal-backdrop"
+          onClick={() => setRejectTarget(null)}
+        >
+          <div
+            className="admin-modal"
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
+            <h2>
+              Reject "{rejectTarget.name}"
+            </h2>
+
+            <form
+              className="admin-form"
+              onSubmit={confirmReject}
+            >
               <label>
                 Rejection message
+
                 <textarea
                   className="admin-textarea"
                   rows={4}
                   value={rejectionMessage}
-                  onChange={(e) => setRejectionMessage(e.target.value)}
+                  onChange={(e) =>
+                    setRejectionMessage(
+                      e.target.value
+                    )
+                  }
                   placeholder="Explain why this listing is being rejected…"
                   required
                 />
               </label>
-              {rejectError && <p className="admin-error">{rejectError}</p>}
+
+              {rejectError && (
+                <p className="admin-error">
+                  {rejectError}
+                </p>
+              )}
+
               <div className="admin-form-row">
-                <button type="submit" className="admin-button admin-button-red-solid" disabled={rejecting}>
-                  {rejecting ? "Rejecting…" : "Confirm reject"}
+                <button
+                  type="submit"
+                  className="admin-button admin-button-red-solid"
+                  disabled={rejecting}
+                >
+                  {rejecting
+                    ? "Rejecting…"
+                    : "Confirm reject"}
                 </button>
-                <button type="button" className="admin-button-outline" onClick={() => setRejectTarget(null)}>
+
+                <button
+                  type="button"
+                  className="admin-button-outline"
+                  onClick={() =>
+                    setRejectTarget(null)
+                  }
+                >
                   Cancel
                 </button>
               </div>
@@ -260,32 +405,80 @@ function Websites() {
 
       {/* Flags modal */}
       {flagTarget && (
-        <div className="admin-modal-backdrop" onClick={() => setFlagTarget(null)}>
-          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Flags — "{flagTarget.name}"</h2>
-            <form className="admin-form" onSubmit={saveFlags}>
+        <div
+          className="admin-modal-backdrop"
+          onClick={() => setFlagTarget(null)}
+        >
+          <div
+            className="admin-modal"
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
+            <h2>
+              Flags — "{flagTarget.name}"
+            </h2>
+
+            <form
+              className="admin-form"
+              onSubmit={saveFlags}
+            >
               <label className="admin-checkbox-label">
                 <input
                   type="checkbox"
                   checked={flags.is_premiered}
-                  onChange={(e) => setFlags((f) => ({ ...f, is_premiered: e.target.checked }))}
+                  onChange={(e) =>
+                    setFlags((f) => ({
+                      ...f,
+                      is_premiered:
+                        e.target.checked,
+                    }))
+                  }
                 />
+
                 Premiered
               </label>
+
               <label className="admin-checkbox-label">
                 <input
                   type="checkbox"
                   checked={flags.is_verified}
-                  onChange={(e) => setFlags((f) => ({ ...f, is_verified: e.target.checked }))}
+                  onChange={(e) =>
+                    setFlags((f) => ({
+                      ...f,
+                      is_verified:
+                        e.target.checked,
+                    }))
+                  }
                 />
+
                 Verified
               </label>
-              {flagError && <p className="admin-error">{flagError}</p>}
+
+              {flagError && (
+                <p className="admin-error">
+                  {flagError}
+                </p>
+              )}
+
               <div className="admin-form-row">
-                <button type="submit" className="admin-button" disabled={savingFlags}>
-                  {savingFlags ? "Saving…" : "Save flags"}
+                <button
+                  type="submit"
+                  className="admin-button"
+                  disabled={savingFlags}
+                >
+                  {savingFlags
+                    ? "Saving…"
+                    : "Save flags"}
                 </button>
-                <button type="button" className="admin-button-outline" onClick={() => setFlagTarget(null)}>
+
+                <button
+                  type="button"
+                  className="admin-button-outline"
+                  onClick={() =>
+                    setFlagTarget(null)
+                  }
+                >
                   Cancel
                 </button>
               </div>
