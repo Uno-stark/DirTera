@@ -1,9 +1,7 @@
-
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-
-import api from "../api/client";
-import "../styles/listing-form.css";
+import api from "../../api/client";
+import "../../styles/listing-form.css";
 
 const emptyForm = {
   name: "",
@@ -61,29 +59,24 @@ function ListingForm() {
         const listing = response.data;
 
         setForm({
-          name: listing.name || "",
-          url: listing.url || "",
+          name:              listing.name              || "",
+          url:               listing.url               || "",
           short_description: listing.short_description || "",
-          full_description: listing.full_description || "",
-          thumbnail_url: listing.thumbnail_url || "",
-          logo_url: listing.logo_url || "",
-          category_slug: listing.category_slug || "",
-          domain_slug: listing.domain_slug || "",
-          tags: listing.tags || "",
-          contact_email: listing.contact_email || "",
-          phone_number: listing.phone_number || "",
-          social_links: listing.social_links || "",
+          full_description:  listing.full_description  || "",
+          thumbnail_url:     listing.thumbnail_url     || "",
+          logo_url:          listing.logo_url          || "",
+          category_slug:     listing.category_slug     || "",
+          domain_slug:       listing.domain_slug       || "",
+          tags:              listing.tags              || "",
+          contact_email:     listing.contact_email     || "",
+          phone_number:      listing.phone_number      || "",
+          social_links:      listing.social_links      || "",
         });
       } catch (error) {
         const detail = error.response?.data?.detail;
 
         if (Array.isArray(detail)) {
-          setError(
-            detail
-              .map((item) => item.msg)
-              .filter(Boolean)
-              .join(" ")
-          );
+          setError(detail.map((item) => item.msg).filter(Boolean).join(" "));
         } else {
           setError(detail || "We couldn't load this listing.");
         }
@@ -106,9 +99,7 @@ function ListingForm() {
 
       try {
         const response = await api.get("/api/v1/domains", {
-          params: {
-            category_slug: form.category_slug,
-          },
+          params: { category_slug: form.category_slug },
         });
 
         setDomains(response.data);
@@ -140,10 +131,7 @@ function ListingForm() {
 
     try {
       const payload = Object.fromEntries(
-        Object.entries(form).map(([key, value]) => [
-          key,
-          value.trim() || null,
-        ])
+        Object.entries(form).map(([key, value]) => [key, value.trim() || null])
       );
 
       if (isEditMode) {
@@ -157,12 +145,7 @@ function ListingForm() {
       const detail = error.response?.data?.detail;
 
       if (Array.isArray(detail)) {
-        setError(
-          detail
-            .map((item) => item.msg)
-            .filter(Boolean)
-            .join(" ")
-        );
+        setError(detail.map((item) => item.msg).filter(Boolean).join(" "));
       } else {
         setError(
           detail ||

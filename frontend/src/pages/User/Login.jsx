@@ -1,15 +1,15 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import api from "../api/client";
-import { startGoogleLogin } from "../api/googleAuth";
-import "../styles/auth.css";
+import api from "../../api/client";
+import { startGoogleLogin } from "../../api/googleAuth";
+import { useAuth } from "../../context/AuthContext";
+import "../../styles/auth.css";
 
-function Register() {
+function Login() {
   const navigate = useNavigate();
+  const { setUser } = useAuth();
 
   const [formData, setFormData] = useState({
-    full_name: "",
     email: "",
     password: "",
   });
@@ -30,34 +30,23 @@ function Register() {
     event.preventDefault();
 
     setError("");
-
-    if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters long.");
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
-      await api.post("/api/v1/auth/register", formData);
+      const { data } = await api.post("/api/v1/auth/login", formData);
 
-      navigate("/login", {
-        state: {
-          message: "Your account has been created. You can now sign in.",
-        },
-      });
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("refresh_token", data.refresh_token);
+
+      const { data: user } = await api.get("/api/v1/auth/me");
+      setUser(user);
+
+      navigate(user.is_admin ? "/admin/dashboard" : "/dashboard");
     } catch (error) {
-      const detail = error.response?.data?.detail;
-
-      if (Array.isArray(detail)) {
-        setError(detail.map((item) => item.msg).join(", "));
-      } else if (typeof detail === "string") {
-        setError(detail);
-      } else {
-        setError(
-          "We couldn't create your account. Please check your information and try again."
-        );
-      }
+      setError(
+        error.response?.data?.detail ||
+          "We couldn't sign you in. Please check your email and password."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -71,30 +60,11 @@ function Register() {
             DirTera
           </Link>
 
-          <h1>Create your account</h1>
-
-          <p>
-            Create an account to discover and explore local businesses on
-            DirTera.
-          </p>
+          <h1>Welcome back</h1>
+          <p>Sign in to continue to your account.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="full_name">Full name</label>
-
-            <input
-              id="full_name"
-              name="full_name"
-              type="text"
-              value={formData.full_name}
-              onChange={handleChange}
-              placeholder="Enter your full name"
-              autoComplete="name"
-              required
-            />
-          </div>
-
           <div className="form-group">
             <label htmlFor="email">Email address</label>
 
@@ -119,15 +89,10 @@ function Register() {
               type="password"
               value={formData.password}
               onChange={handleChange}
-              placeholder="Create a password"
-              autoComplete="new-password"
-              minLength={8}
+              placeholder="Enter your password"
+              autoComplete="current-password"
               required
             />
-
-            <small className="form-hint">
-              Use at least 8 characters.
-            </small>
           </div>
 
           {error && (
@@ -141,7 +106,7 @@ function Register() {
             className="auth-button"
             disabled={isSubmitting}
           >
-            {isSubmitting ? "Creating account..." : "Create account"}
+            {isSubmitting ? "Signing in..." : "Sign in"}
           </button>
         </form>
 
@@ -158,12 +123,12 @@ function Register() {
         </button>
 
         <p className="auth-footer">
-          Already have an account?{" "}
-          <Link to="/login">Sign in</Link>
+          Don't have an account?{" "}
+          <Link to="/register">Create an account</Link>
         </p>
       </section>
     </main>
   );
 }
 
-export default Register;
+export default Login;
