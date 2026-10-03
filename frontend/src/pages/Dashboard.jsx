@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../api/client";
 import "../styles/dashboard.css";
 
 function Dashboard() {
+  const navigate = useNavigate();
   const [listings, setListings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -59,6 +60,9 @@ function Dashboard() {
     <main className="dashboard-page">
       <header className="dashboard-header">
         <div>
+          <button type="button" onClick={() => navigate("/")} className="dashboard-back-button">
+            ← Browse
+          </button>
           <Link to="/" className="dashboard-logo">
             DirTera
           </Link>

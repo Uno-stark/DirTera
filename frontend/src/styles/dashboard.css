@@ -217,3 +217,19 @@
     grid-template-columns: 1fr;
   }
 }
+
+.dashboard-back-button {
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  margin-bottom: 12px;
+  display: inline-block;
+}
+
+.dashboard-back-button:hover {
+  background: #f3f4f6;
+}

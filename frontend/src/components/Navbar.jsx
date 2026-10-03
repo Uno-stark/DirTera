@@ -19,8 +19,12 @@ function Navbar() {
 
           {isAuthenticated ? (
             <>
-              <Link to="/dashboard" className="nav-link">
-                Dash board 
+              <Link to="/account" className="nav-link">
+                My Account
+              </Link>
+
+              <Link to={user?.is_admin ? "/admin" : "/dashboard"} className="nav-link">
+                {user?.is_admin ? "Admin Dashboard" : "Dashboard"}
               </Link>
 
               <button
