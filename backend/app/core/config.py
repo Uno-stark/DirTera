@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-in-production"
     ENVIRONMENT: str = "development"
 
-    # ── CORS ─────────────────────────────────────────────────────────────────
+    # ── CORS 
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
     @property
@@ -63,6 +63,15 @@ class Settings(BaseSettings):
     # Pagination
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
+
+    # ── Rate limiting 
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_GLOBAL: str = "200/minute"
+    RATE_LIMIT_AUTH: str = "10/minute"
+    RATE_LIMIT_PAYMENT: str = "5/minute"
+    RATE_LIMIT_CLICK: str = "60/minute"
+    RATE_LIMIT_REVIEW: str = "10/minute"
+    REDIS_URL: Optional[str] = None
 
     # Email
     SMTP_HOST: Optional[str] = None
