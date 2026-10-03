@@ -1,15 +1,22 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
+// Public pages
 import Home from "./pages/Home";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Account from "./pages/Account";
 import BusinessDetail from "./pages/BusinessDetail";
-import ProtectedRoute from "./components/ProtectedRoute";
-import GoogleCallback from "./pages/GoogleCallback";
-import Dashboard from "./pages/Dashboard";
-import ListingForm from "./pages/ListingForm";
 
+// User pages
+import Login from "./pages/User/Login";
+import Register from "./pages/User/Register";
+import GoogleCallback from "./pages/User/GoogleCallback";
+import Account from "./pages/User/Account";
+import Dashboard from "./pages/User/Dashboard";
+import ListingForm from "./pages/User/ListingForm";
+import Notifications from "./pages/User/Notifications";
+import Analytics from "./pages/User/Analytics";
+import Subscribe from "./pages/User/Subscribe";
+import Subscriptions from "./pages/User/Subscriptions";
+
+// Admin pages
 import AdminLayout from "./pages/Admin/AdminLayout";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
 import Categories from "./pages/Admin/Categories";
@@ -19,33 +26,26 @@ import Users from "./pages/Admin/Users";
 import AdminAnalysis from "./pages/Admin/AdminAnalytics";
 import AdminSubscriptions from "./pages/Admin/AdminSubscriptions";
 
+// Shared
+import ProtectedRoute from "./components/ProtectedRoute";
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* ================= PUBLIC ================= */}
+        {/* Public */}
         <Route path="/" element={<Home />} />
+        <Route path="/businesses/:websiteId" element={<BusinessDetail />} />
 
-        <Route
-          path="/businesses/:websiteId"
-          element={<BusinessDetail />}
-        />
-
-        {/* ================= AUTH ================= */}
+        {/* Auth */}
         <Route path="/login" element={<Login />} />
-
         <Route path="/register" element={<Register />} />
+        <Route path="/auth/callback" element={<GoogleCallback />} />
 
-        <Route
-          path="/auth/callback"
-          element={<GoogleCallback />}
-        />
-
-        {/* ================= PROTECTED ================= */}
+        {/* Protected */}
         <Route element={<ProtectedRoute />}>
           {/* User pages */}
           <Route path="/account" element={<Account />} />
-
           <Route path="/dashboard" element={<Dashboard />} />
 
           <Route
@@ -58,7 +58,13 @@ function App() {
             element={<ListingForm />}
           />
 
-          {/* ================= ADMIN ================= */}
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/analytics/:websiteId" element={<Analytics />} />
+          <Route path="/subscribe/:websiteId" element={<Subscribe />} />
+          <Route path="/subscriptions" element={<Subscriptions />} />
+
+          {/* Admin */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route
               index
@@ -102,7 +108,7 @@ function App() {
           </Route>
         </Route>
 
-        {/* ================= FALLBACK ================= */}
+        {/* Fallback */}
         <Route
           path="*"
           element={<Navigate to="/" replace />}
