@@ -13,14 +13,16 @@ PATCH  /reviews/{review_id}/hide       → hide/show a review
 All {website_id} and {review_id} path parameters are ULID strings.
 """
 
-from __future__ import annotations
-
 import math
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_db
 from app.core.deps import AdminUser, CurrentUser, DBSession
+from app.core.limiter import limiter
+from app.core.config import settings
 from app.models.review import Review
 from app.models.website import Website
 from app.schemas.common import PaginatedResponse
@@ -34,7 +36,7 @@ async def _recalc_rating(website_id: str, db) -> None:
     result = await db.execute(
         select(func.avg(Review.rating), func.count(Review.id)).where(
             Review.website_id == website_id,
-            Review.is_visible == True,  # noqa: E712
+            Review.is_visible == True,  
         )
     )
     avg, count = result.one()
@@ -45,11 +47,13 @@ async def _recalc_rating(website_id: str, db) -> None:
 
 
 @router.post("/{website_id}", response_model=ReviewOut, status_code=201)
+@limiter.limit(settings.RATE_LIMIT_REVIEW)
 async def create_review(
+    request: Request,
     website_id: str,
     payload: ReviewCreate,
     current_user: CurrentUser,
-    db: DBSession,
+    db: AsyncSession = Depends(get_db),
 ):
     existing = await db.execute(
         select(Review).where(
@@ -84,7 +88,7 @@ async def list_reviews(
 ):
     query = select(Review).where(
         Review.website_id == website_id,
-        Review.is_visible == True,  # noqa: E712
+        Review.is_visible == True,  
     )
     count_q = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_q)).scalar_one()
