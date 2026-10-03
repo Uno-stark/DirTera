@@ -1,22 +1,22 @@
 """
 Website listing endpoints.
 
-─── Public discovery ──────────────────────────────────────────────────────────
-GET  /websites                     → browse (category_slug, domain_slug, keywords, sort)
-GET  /websites/top                 → top N sites (limit, sort)
-GET  /websites/multi-category      → one block per category slug — home-page feed
-GET  /websites/premiered           → premiered sites only
-GET  /websites/{website_id}        → full listing detail
-GET  /websites/{website_id}/click  → record click → redirect
+─── Public ────────────────────────────────────────────────────────────────────
+GET  /websites                     → browse
+GET  /websites/top                 → top N 
+GET  /websites/multi-category      → home-page feed
+GET  /websites/premiered           → premiered
+GET  /websites/{website_id}        → detail
+GET  /websites/{website_id}/click  → record click → redirect to URL
 
 ─── Client (owner) ────────────────────────────────────────────────────────────
-GET    /websites/my
-POST   /websites
-PATCH  /websites/{website_id}
+GET    /websites/my                → full schema
+POST   /websites                   → full schema
+PATCH  /websites/{website_id}      → full schema
 DELETE /websites/{website_id}
 
 ─── Admin ─────────────────────────────────────────────────────────────────────
-GET    /websites/admin/all
+GET    /websites/admin/all         → full schema with owner info
 POST   /websites/{website_id}/approve
 POST   /websites/{website_id}/reject
 PATCH  /websites/{website_id}/admin
@@ -42,6 +42,8 @@ from app.schemas.website import (
     WebsiteDetailOut,
     WebsiteOut,
     WebsitePendingOut,
+    WebsitePublicDetailOut,
+    WebsitePublicOut,
     WebsiteUpdate,
 )
 from app.services import analytics_service, website_service
@@ -53,15 +55,19 @@ _SORT_OPTIONS = ["score", "rating", "clicks", "newest"]
 
 # ── Public discovery ────────────────────────────────────────────────────────────
 
-@router.get("", response_model=PaginatedResponse[WebsiteOut], summary="Browse listings")
+@router.get(
+    "",
+    response_model=PaginatedResponse[WebsitePublicOut],
+    summary="Browse listings",
+)
 async def browse_websites(
     db: DBSession,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    category: Optional[str] = Query(None, description="Category slug, e.g. 'technology'"),
-    domain: Optional[str] = Query(None, description="Domain slug, e.g. 'car_rental'"),
-    keywords: Optional[str] = Query(None, description="Comma-separated keywords"),
-    sort_by: str = Query("score", description="score | rating | clicks | newest"),
+    category: Optional[str] = Query(None),
+    domain: Optional[str] = Query(None),
+    keywords: Optional[str] = Query(None),
+    sort_by: str = Query("score"),
 ):
     if sort_by not in _SORT_OPTIONS:
         sort_by = "score"
@@ -69,28 +75,25 @@ async def browse_websites(
         db, page, page_size, category, domain, keywords, sort_by=sort_by
     )
     return PaginatedResponse(
-        items=items, total=total, page=page, page_size=page_size,
+        items=[WebsitePublicOut.model_validate(i) for i in items],
+        total=total, page=page, page_size=page_size,
         total_pages=math.ceil(total / page_size) if total else 1,
     )
 
 
-@router.get("/top", response_model=TopNResponse, summary="Top N listings")
+@router.get(
+    "/top",
+    response_model=TopNResponse,
+    summary="Top N listings",
+)
 async def top_websites(
     db: DBSession,
-    limit: int = Query(10, ge=1, le=50, description="Number to return (max 50)"),
-    category: Optional[str] = Query(None, description="Category slug"),
-    domain: Optional[str] = Query(None, description="Domain slug"),
+    limit: int = Query(10, ge=1, le=50),
+    category: Optional[str] = Query(None),
+    domain: Optional[str] = Query(None),
     keywords: Optional[str] = Query(None),
     sort_by: str = Query("score"),
 ):
-    """
-    Top N websites — site-wide or scoped to category / domain / keywords.
-
-    Examples:
-    - `?domain=car_rental&limit=5`          → top 5 car rental sites
-    - `?category=health&sort_by=rating`     → top health sites by rating
-    - `?limit=10`                           → site-wide top 10
-    """
     if sort_by not in _SORT_OPTIONS:
         sort_by = "score"
     return await website_service.get_top_n(db, limit, category, domain, keywords, sort_by)
@@ -99,23 +102,16 @@ async def top_websites(
 @router.get(
     "/multi-category",
     response_model=MultiCategoryResponse,
-    summary="Fetch top websites from multiple category slugs in one request",
+    summary="Multi-category home-page feed",
 )
 async def multi_category(
     db: DBSession,
-    categories: List[str] = Query(
-        ...,
-        description="Category slugs — repeat param: ?categories=technology&categories=health",
-    ),
+    categories: List[str] = Query(...),
     per_category: int = Query(5, ge=1, le=20),
     domain: Optional[str] = Query(None),
     keywords: Optional[str] = Query(None),
     sort_by: str = Query("score"),
 ):
-    """
-    Returns one block per requested category slug, sorted by the chosen strategy.
-    Designed for home-page feeds.  Max 10 categories × 20 items.
-    """
     if sort_by not in _SORT_OPTIONS:
         sort_by = "score"
     return await website_service.get_multi_category(
@@ -123,7 +119,11 @@ async def multi_category(
     )
 
 
-@router.get("/premiered", response_model=PaginatedResponse[WebsiteOut], summary="Premiered listings")
+@router.get(
+    "/premiered",
+    response_model=PaginatedResponse[WebsitePublicOut],
+    summary="Premiered listings",
+)
 async def premiered_websites(
     db: DBSession,
     page: int = Query(1, ge=1),
@@ -136,12 +136,17 @@ async def premiered_websites(
         db, page, page_size, is_premiered=True, sort_by=sort_by
     )
     return PaginatedResponse(
-        items=items, total=total, page=page, page_size=page_size,
+        items=[WebsitePublicOut.model_validate(i) for i in items],
+        total=total, page=page, page_size=page_size,
         total_pages=math.ceil(total / page_size) if total else 1,
     )
 
 
-@router.get("/my", response_model=PaginatedResponse[WebsiteOut], summary="My listings")
+@router.get(
+    "/my",
+    response_model=PaginatedResponse[WebsiteOut],
+    summary="My listings (owner — full data)",
+)
 async def my_websites(
     current_user: CurrentUser,
     db: DBSession,
@@ -155,10 +160,12 @@ async def my_websites(
     )
 
 
+# ── Admin — full schema ────────────────────────────────────────────────────────
+
 @router.get(
     "/admin/all",
     response_model=PaginatedResponse[WebsitePendingOut],
-    summary="Admin: all listings",
+    summary="Admin: all listings with full data",
 )
 async def admin_list_websites(
     _admin: AdminUser,
@@ -179,19 +186,36 @@ async def admin_list_websites(
     )
 
 
-@router.get("/{website_id}", response_model=WebsiteDetailOut, summary="Get listing detail")
-async def get_website(website_id: str, db: DBSession):
-    return await website_service.get_website_by_id(website_id, db)
+@router.get(
+    "/{website_id}",
+    response_model=WebsitePublicDetailOut,
+    summary="Get listing detail (public — no URL or PII)",
+)
+async def get_website_public(website_id: str, db: DBSession):
+    """
+    Returns safe listing detail for public visitors.
+    The destination URL is NOT included — use GET /{id}/click to visit the site.
+    Owner identity is limited to display name and avatar only.
+    """
+    website = await website_service.get_website_by_id(website_id, db)
+    return website_service.to_public_detail(website)
 
 
-@router.get("/{website_id}/click", summary="Record click and redirect")
+@router.get(
+    "/{website_id}/click",
+    summary="Record click and redirect to destination",
+)
 async def click_redirect(website_id: str, request: Request, db: DBSession):
+    """
+    The ONLY endpoint that exposes the destination URL — and only as an
+    HTTP redirect, never in the response body. Records the click for analytics.
+    """
     website = await website_service.get_website_by_id(website_id, db)
     await analytics_service.record_click(website, request, db)
     return RedirectResponse(url=website.url, status_code=302)
 
 
-# ── Client (owner) ─────────────────────────────────────────────────────────────
+# ── Client (owner) — full schema ───────────────────────────────────────────────
 
 @router.post("", response_model=WebsiteDetailOut, status_code=201)
 async def register_website(payload: WebsiteCreate, current_user: CurrentUser, db: DBSession):
@@ -214,7 +238,7 @@ async def delete_website(website_id: str, current_user: CurrentUser, db: DBSessi
     await website_service.delete_website(website, db)
 
 
-# ── Admin moderation ───────────────────────────────────────────────────────────
+# ── Admin — full schema ────────────────────────────────────────────────────────
 
 @router.post("/{website_id}/approve", response_model=WebsiteDetailOut)
 async def approve_website(website_id: str, admin: AdminUser, db: DBSession):
