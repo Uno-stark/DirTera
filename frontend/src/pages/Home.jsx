@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import api from "../api/client";
 import Navbar from "../components/Navbar";
 import SearchBar from "../components/SearchBar";
 import CategoryList from "../components/CategoryList";
 import BusinessList from "../components/BusinessList";
+import TopListings from "../components/TopListings";
+import MultiCategoryFeed from "../components/MultiCategoryFeed";
+import PremieredListings from "../components/PremieredListings";
 import "../styles/home.css";
 
 function Home() {
@@ -17,6 +21,22 @@ function Home() {
   const [searchQuery, setSearchQuery] = useState(
     searchParams.get("search") || ""
   );
+
+  // Slugs used to drive MultiCategoryFeed — loaded once on mount
+  const [categorySlugs, setCategorySlugs] = useState([]);
+
+  useEffect(() => {
+    api.get("/api/v1/categories")
+      .then(({ data }) =>
+        setCategorySlugs(
+          (Array.isArray(data) ? data : data.items ?? [])
+            .filter((c) => c.is_active !== false)
+            .slice(0, 10)
+            .map((c) => c.slug)
+        )
+      )
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const category = searchParams.get("category") || "";
@@ -75,6 +95,22 @@ function Home() {
           selectedCategory={selectedCategory}
           onCategorySelect={handleCategorySelect}
         />
+
+        {!selectedCategory && !searchQuery && (
+          <PremieredListings pageSize={6} sortBy="score" />
+        )}
+
+        {!selectedCategory && !searchQuery && (
+          <TopListings limit={6} sortBy="score" />
+        )}
+
+        {!selectedCategory && !searchQuery && categorySlugs.length > 0 && (
+          <MultiCategoryFeed
+            categories={categorySlugs}
+            perCategory={4}
+            sortBy="score"
+          />
+        )}
 
         <BusinessList
           selectedCategory={selectedCategory}

@@ -136,6 +136,35 @@
   color: #6b7280;
 }
 
+.dashboard-listing-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dashboard-danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 18px;
+  border-radius: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid #fca5a5;
+  background: white;
+  color: #dc2626;
+  cursor: pointer;
+}
+
+.dashboard-danger-button:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.dashboard-danger-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .dashboard-empty {
   padding: 48px 24px;
   text-align: center;
@@ -176,6 +205,10 @@
   .dashboard-listing-card {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .dashboard-listing-actions {
+    width: 100%;
   }
 }
 

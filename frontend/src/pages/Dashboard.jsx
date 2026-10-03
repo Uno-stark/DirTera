@@ -7,6 +7,7 @@ function Dashboard() {
   const [listings, setListings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     const loadListings = async () => {
@@ -25,6 +26,22 @@ function Dashboard() {
 
     loadListings();
   }, []);
+
+  const handleDelete = async (listing) => {
+    if (!window.confirm(`Delete "${listing.name}"? This cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingId(listing.id);
+    try {
+      await api.delete(`/api/v1/websites/${listing.id}`);
+      setListings((prev) => prev.filter((l) => l.id !== listing.id));
+    } catch (err) {
+      alert(err.response?.data?.detail || "We couldn't delete this listing.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const pendingCount = listings.filter(
     (listing) => listing.status === "pending"
@@ -120,12 +137,22 @@ function Dashboard() {
                   </div>
                 </div>
 
-                <Link
-                  to={`/dashboard/listings/${listing.id}/edit`}
-                  className="dashboard-secondary-button"
-                >
-                  Edit
-                </Link>
+                <div className="dashboard-listing-actions">
+                  <Link
+                    to={`/dashboard/listings/${listing.id}/edit`}
+                    className="dashboard-secondary-button"
+                  >
+                    Edit
+                  </Link>
+                  <button
+                    type="button"
+                    className="dashboard-danger-button"
+                    disabled={deletingId === listing.id}
+                    onClick={() => handleDelete(listing)}
+                  >
+                    {deletingId === listing.id ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
               </article>
             ))}
           </div>
