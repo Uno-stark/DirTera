@@ -1,36 +1,14 @@
-"""
-Website listing endpoints.
-
-─── Public ────────────────────────────────────────────────────────────────────
-GET  /websites                     → browse
-GET  /websites/top                 → top N 
-GET  /websites/multi-category      → home-page feed
-GET  /websites/premiered           → premiered
-GET  /websites/{website_id}        → detail
-GET  /websites/{website_id}/click  → record click → redirect to URL
-
-─── Client (owner) ────────────────────────────────────────────────────────────
-GET    /websites/my                → full schema
-POST   /websites                   → full schema
-PATCH  /websites/{website_id}      → full schema
-DELETE /websites/{website_id}
-
-─── Admin ─────────────────────────────────────────────────────────────────────
-GET    /websites/admin/all         → full schema with owner info
-POST   /websites/{website_id}/approve
-POST   /websites/{website_id}/reject
-PATCH  /websites/{website_id}/admin
-"""
-
-from __future__ import annotations
-
 import math
 from typing import List, Optional
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
+from app.core.database import get_db
 from app.core.deps import AdminUser, CurrentUser, DBSession
+from app.core.limiter import limiter
 from app.models.website import WebsiteStatus
 from app.schemas.common import PaginatedResponse
 from app.schemas.website import (
@@ -49,17 +27,12 @@ from app.schemas.website import (
 from app.services import analytics_service, website_service
 
 router = APIRouter(prefix="/websites", tags=["Websites"])
-
 _SORT_OPTIONS = ["score", "rating", "clicks", "newest"]
 
 
-# ── Public discovery ────────────────────────────────────────────────────────────
+# ── Public 
 
-@router.get(
-    "",
-    response_model=PaginatedResponse[WebsitePublicOut],
-    summary="Browse listings",
-)
+@router.get("", response_model=PaginatedResponse[WebsitePublicOut], summary="Browse listings")
 async def browse_websites(
     db: DBSession,
     page: int = Query(1, ge=1),
@@ -81,11 +54,7 @@ async def browse_websites(
     )
 
 
-@router.get(
-    "/top",
-    response_model=TopNResponse,
-    summary="Top N listings",
-)
+@router.get("/top", response_model=TopNResponse, summary="Top N listings")
 async def top_websites(
     db: DBSession,
     limit: int = Query(10, ge=1, le=50),
@@ -99,11 +68,7 @@ async def top_websites(
     return await website_service.get_top_n(db, limit, category, domain, keywords, sort_by)
 
 
-@router.get(
-    "/multi-category",
-    response_model=MultiCategoryResponse,
-    summary="Multi-category home-page feed",
-)
+@router.get("/multi-category", response_model=MultiCategoryResponse, summary="Multi-category feed")
 async def multi_category(
     db: DBSession,
     categories: List[str] = Query(...),
@@ -119,11 +84,7 @@ async def multi_category(
     )
 
 
-@router.get(
-    "/premiered",
-    response_model=PaginatedResponse[WebsitePublicOut],
-    summary="Premiered listings",
-)
+@router.get("/premiered", response_model=PaginatedResponse[WebsitePublicOut], summary="Premiered listings")
 async def premiered_websites(
     db: DBSession,
     page: int = Query(1, ge=1),
@@ -142,11 +103,7 @@ async def premiered_websites(
     )
 
 
-@router.get(
-    "/my",
-    response_model=PaginatedResponse[WebsiteOut],
-    summary="My listings (owner — full data)",
-)
+@router.get("/my", response_model=PaginatedResponse[WebsiteOut], summary="My listings")
 async def my_websites(
     current_user: CurrentUser,
     db: DBSession,
@@ -160,13 +117,7 @@ async def my_websites(
     )
 
 
-# ── Admin — full schema ────────────────────────────────────────────────────────
-
-@router.get(
-    "/admin/all",
-    response_model=PaginatedResponse[WebsitePendingOut],
-    summary="Admin: all listings with full data",
-)
+@router.get("/admin/all", response_model=PaginatedResponse[WebsitePendingOut], summary="Admin: all listings")
 async def admin_list_websites(
     _admin: AdminUser,
     db: DBSession,
@@ -186,36 +137,26 @@ async def admin_list_websites(
     )
 
 
-@router.get(
-    "/{website_id}",
-    response_model=WebsitePublicDetailOut,
-    summary="Get listing detail (public — no URL or PII)",
-)
+@router.get("/{website_id}", response_model=WebsitePublicDetailOut, summary="Listing detail (public)")
 async def get_website_public(website_id: str, db: DBSession):
-    """
-    Returns safe listing detail for public visitors.
-    The destination URL is NOT included — use GET /{id}/click to visit the site.
-    Owner identity is limited to display name and avatar only.
-    """
     website = await website_service.get_website_by_id(website_id, db)
     return website_service.to_public_detail(website)
 
 
-@router.get(
-    "/{website_id}/click",
-    summary="Record click and redirect to destination",
-)
-async def click_redirect(website_id: str, request: Request, db: DBSession):
-    """
-    The ONLY endpoint that exposes the destination URL — and only as an
-    HTTP redirect, never in the response body. Records the click for analytics.
-    """
+@router.get("/{website_id}/click", summary="Record click → redirect")
+@limiter.limit(settings.RATE_LIMIT_CLICK)
+async def click_redirect(
+    request: Request,
+    website_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Rate-limited — prevents click farming. Destination URL only in redirect."""
     website = await website_service.get_website_by_id(website_id, db)
     await analytics_service.record_click(website, request, db)
     return RedirectResponse(url=website.url, status_code=302)
 
 
-# ── Client (owner) — full schema ───────────────────────────────────────────────
+# ── Client (owner) ─────────────────────────────────────────────────────────────
 
 @router.post("", response_model=WebsiteDetailOut, status_code=201)
 async def register_website(payload: WebsiteCreate, current_user: CurrentUser, db: DBSession):
@@ -238,7 +179,7 @@ async def delete_website(website_id: str, current_user: CurrentUser, db: DBSessi
     await website_service.delete_website(website, db)
 
 
-# ── Admin — full schema ────────────────────────────────────────────────────────
+# ── Admin ──────────────────────────────────────────────────────────────────────
 
 @router.post("/{website_id}/approve", response_model=WebsiteDetailOut)
 async def approve_website(website_id: str, admin: AdminUser, db: DBSession):
