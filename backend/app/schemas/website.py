@@ -75,22 +75,10 @@ class RejectWebsite(BaseModel):
     rejection_message: str
 
 
-# ── Public output (browse + detail) ───────────────────────────────────────────
-# These schemas intentionally omit fields that could enable farming or
-# expose personal information:
-#   • url            — never returned in JSON; only accessible via /click redirect
-#   • owner_id       — internal identifier, no public value
-#   • contact_email  — prevents email harvesting
-#   • phone_number   — prevents phone harvesting
-#   • social_links   — prevents social account scraping
-#   • owner.email    — owner's email is private
-#   • owner.id       — owner ULID is private
-
 class WebsitePublicOut(BaseModel):
     """
     Safe public listing schema — used in browse, top, multi-category,
     premiered, and reviews endpoints.
-    The destination URL is intentionally absent; use GET /{id}/click to visit.
     """
     model_config = ConfigDict(from_attributes=True)
 
@@ -121,8 +109,6 @@ class WebsitePublicDetailOut(WebsitePublicOut):
 
 
 # ── Owner / Admin output (full data) ──────────────────────────────────────────
-# These schemas are used for authenticated owner views (/my, /edit) and
-# all admin endpoints. They include the full URL, contact info, status, etc.
 
 class WebsiteOwnerOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
