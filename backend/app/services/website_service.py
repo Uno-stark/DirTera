@@ -17,6 +17,8 @@ from app.schemas.website import (
     WebsiteAdminUpdate,
     WebsiteCreate,
     WebsiteOut,
+    WebsitePublicDetailOut,
+    WebsitePublicOut,
     WebsiteUpdate,
 )
 from app.services.category_service import validate_category_slug, validate_domain_slug
@@ -116,6 +118,30 @@ async def get_website_by_id(website_id: str, db: AsyncSession) -> Website:
     if website is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Website not found")
     return website
+
+
+def to_public_detail(website: Website) -> WebsitePublicDetailOut:
+    """Convert an ORM Website to the safe public detail schema."""
+    return WebsitePublicDetailOut(
+        id=website.id,
+        name=website.name,
+        short_description=website.short_description,
+        full_description=website.full_description,
+        thumbnail_url=website.thumbnail_url,
+        logo_url=website.logo_url,
+        category_slug=website.category_slug,
+        domain_slug=website.domain_slug,
+        tags=website.tags,
+        is_verified=website.is_verified,
+        is_premiered=website.is_premiered,
+        avg_rating=website.avg_rating,
+        review_count=website.review_count,
+        total_clicks=website.total_clicks,
+        created_at=website.created_at,
+        # owner fields — display name and avatar only, no email/id
+        owner_display_name=website.owner.full_name if website.owner else None,
+        owner_avatar_url=website.owner.avatar_url if website.owner else None,
+    )
 
 
 async def get_website_owned_by(website_id: str, owner_id: str, db: AsyncSession) -> Website:
@@ -264,7 +290,7 @@ async def get_top_n(
         limit=limit,
         sort_by=sort_by,
         total_found=total_found,
-        items=[WebsiteOut.model_validate(r) for r in rows],
+        items=[WebsitePublicOut.model_validate(r) for r in rows],
     )
 
 
@@ -290,7 +316,7 @@ async def get_multi_category(
         blocks.append(
             CategoryBlockItem(
                 category_slug=slug,
-                items=[WebsiteOut.model_validate(r) for r in rows],
+                items=[WebsitePublicOut.model_validate(r) for r in rows],
             )
         )
 
