@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../api/client";
 import "../styles/account.css";
 
 function Account() {
   const { user, setUser, logout } = useAuth();
-
+ const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [fullName, setFullName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -138,6 +139,12 @@ function Account() {
           <button type="button" className="account-btn-danger" onClick={logout}>
             Sign out
           </button>
+
+          <button type="button" onClick={() => navigate("/")} className="dashboard-back-button">
+            ← Browse
+          </button>
+
+          
         </div>
 
       </div>
