@@ -17,6 +17,7 @@ import Categories from "./pages/Admin/Categories";
 import Domains from "./pages/Admin/Domains";
 import AdminWebsites from "./pages/Admin/Websites";
 import Users from "./pages/Admin/Users";
+import Requests from "./pages/Admin/Requests";
 import Subscribe from "./pages/Subscribe";
 
 function App() {
@@ -62,6 +63,7 @@ function App() {
             <Route path="domains" element={<Domains />} />
             <Route path="websites" element={<AdminWebsites />} />
             <Route path="users" element={<Users />} />
+            <Route path="requests" element={<Requests />} />
           </Route>
         </Route>
 
