@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import NotificationBell from "./NotificationBell";
 import "../styles/navbar.css";
 
 function Navbar() {
@@ -19,6 +20,8 @@ function Navbar() {
 
           {isAuthenticated ? (
             <>
+              <NotificationBell />
+
               <Link to="/account" className="nav-link">
                 My Account
               </Link>
