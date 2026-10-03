@@ -148,6 +148,14 @@ function Dashboard() {
                   >
                     Analytics
                   </Link>
+                  {listing.status === "approved" && (
+                    <Link
+                      to={`/dashboard/listings/${listing.id}/subscribe`}
+                      className="dashboard-secondary-button"
+                    >
+                      Subscribe
+                    </Link>
+                  )}
                   <Link
                     to={`/dashboard/listings/${listing.id}/edit`}
                     className="dashboard-secondary-button"

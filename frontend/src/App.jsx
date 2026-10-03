@@ -17,6 +17,7 @@ import Categories from "./pages/Admin/Categories";
 import Domains from "./pages/Admin/Domains";
 import AdminWebsites from "./pages/Admin/Websites";
 import Users from "./pages/Admin/Users";
+import Subscribe from "./pages/Subscribe";
 
 function App() {
   return (
@@ -48,6 +49,10 @@ function App() {
           <Route
             path="/dashboard/listings/:websiteId/analytics"
             element={<Analytics />}
+          />
+          <Route
+            path="/dashboard/listings/:websiteId/subscribe"
+            element={<Subscribe />}
           />
 
           <Route path="/admin" element={<AdminLayout />}>
