@@ -1,22 +1,15 @@
-"""
-Payment / subscription endpoints — receipt-based links.et verification.
-
-GET  /payments/plans                 → plan prices + durations
-GET  /payments/subscribe/info        → cost preview before paying
-POST /payments/verify                → submit receipt URL, activate subscription
-GET  /payments/subscriptions         → list my subscriptions
-GET  /payments/health                → links.et service health (filtered)
-"""
-
 from __future__ import annotations
 
 from fastapi import APIRouter, Query
 from sqlalchemy import select
 
-from app.core.deps import CurrentUser, DBSession
-from app.models.subscription import Subscription, SubscriptionPlan
+from app.core.deps import AdminUser, CurrentUser, DBSession
+from app.models.subscription import Subscription
 from app.schemas.subscription import (
     LinksETHealthFiltered,
+    PlanConfigCreate,
+    PlanConfigOut,
+    PlanConfigUpdate,
     SubscriptionOut,
     VerifyPaymentRequest,
     VerifyPaymentResponse,
@@ -26,35 +19,103 @@ from app.services import payment_service
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
 
-@router.get("/plans", summary="List subscription plans and prices")
-async def list_plans():
+# ══════════════════════════════════════════════════════════════════════════════
+#  PLAN CRUD  (admin)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get(
+    "/plans",
+    response_model=list[PlanConfigOut],
+    summary="List active subscription plans",
+)
+async def list_plans(db: DBSession):
     """
-    Returns all available plans with their prices (ETB) and durations.
-    Show this to the user before they go pay.
+    Public endpoint — returns only active plans, ordered by sort_order.
+    Use this to render the plan picker in the frontend.
     """
-    from app.services.payment_service import PLAN_DURATIONS, PLAN_PRICES
-    return [
-        {
-            "plan": plan.value,
-            "amount": PLAN_PRICES[plan],
-            "currency": "ETB",
-            "duration_days": PLAN_DURATIONS[plan],
-        }
-        for plan in PLAN_PRICES
-    ]
+    plans = await payment_service.get_active_plans(db)
+    return plans
 
 
-@router.get("/subscribe/info", summary="Get subscription cost preview")
+@router.get(
+    "/plans/all",
+    response_model=list[PlanConfigOut],
+    summary="List ALL plans including inactive (admin)",
+)
+async def list_all_plans(_admin: AdminUser, db: DBSession):
+    """Admin: returns all plans regardless of is_active flag."""
+    return await payment_service.get_all_plans(db)
+
+
+@router.post(
+    "/plans",
+    response_model=PlanConfigOut,
+    status_code=201,
+    summary="Create a subscription plan (admin)",
+)
+async def create_plan(
+    payload: PlanConfigCreate,
+    _admin: AdminUser,
+    db: DBSession,
+):
+    
+    return await payment_service.create_plan(payload, db)
+
+
+@router.patch(
+    "/plans/{plan_id}",
+    response_model=PlanConfigOut,
+    summary="Update a subscription plan (admin)",
+)
+async def update_plan(
+    plan_id: str,
+    payload: PlanConfigUpdate,
+    _admin: AdminUser,
+    db: DBSession,
+):
+    
+    return await payment_service.update_plan(plan_id, payload, db)
+
+
+@router.delete(
+    "/plans/{plan_id}",
+    status_code=204,
+    summary="Deactivate or delete a subscription plan (admin)",
+)
+async def delete_plan(
+    plan_id: str,
+    _admin: AdminUser,
+    db: DBSession,
+    hard: bool = Query(
+        False,
+        description=(
+            "false (default) — soft-deactivate: sets is_active=false, "
+            "existing subscriptions are unaffected. "
+            "true — hard delete the row from the DB."
+        ),
+    ),
+):
+    if hard:
+        await payment_service.hard_delete_plan(plan_id, db)
+    else:
+        await payment_service.delete_plan(plan_id, db)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  SUBSCRIPTION FLOW
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get(
+    "/subscribe/info",
+    summary="Get subscription cost preview",
+)
 async def subscription_info(
     website_id: str,
-    plan: SubscriptionPlan,
+    plan: str,
     current_user: CurrentUser,
     db: DBSession,
 ):
-    """
-    Returns the expected amount for the chosen plan so the user knows
-    exactly what to pay before they open their payment app.
-    """
+   
     return await payment_service.get_subscription_info(
         website_id, current_user.id, plan, db
     )
@@ -70,15 +131,7 @@ async def verify_payment(
     current_user: CurrentUser,
     db: DBSession,
 ):
-    """
-    Submit the receipt URL from your payment provider (Telebirr, CBE, etc.).
-
-    links.et fetches and parses the receipt, we validate the settled amount
-    against the plan price, then activate the subscription.
-
-    The receipt URL is stored for reference; the full receipt can always be
-    re-fetched via links.et.
-    """
+    
     return await payment_service.verify_payment(payload, current_user.id, db)
 
 
@@ -103,11 +156,5 @@ async def my_subscriptions(current_user: CurrentUser, db: DBSession):
     summary="links.et service health",
 )
 async def linksset_health():
-    """
-    Proxies the links.et /api/status endpoint and returns only the
-    three components relevant to DirTera:
-      - verify-web (the links.et service itself)
-      - Postgres (links.et auth + API keys DB)
-      - Telebirr upstream
-    """
+    
     return await payment_service.check_linksset_health()

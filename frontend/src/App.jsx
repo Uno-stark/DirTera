@@ -29,6 +29,9 @@ import AdminSubscriptions from "./pages/Admin/AdminSubscriptions";
 // Shared
 import ProtectedRoute from "./components/ProtectedRoute";
 
+// Shared
+import ProtectedRoute from "./components/ProtectedRoute";
+
 function App() {
   return (
     <BrowserRouter>
@@ -38,11 +41,17 @@ function App() {
         <Route path="/businesses/:websiteId" element={<BusinessDetail />} />
 
         {/* Auth */}
+        {/* ── Public ───────────────────────────────────────────────────── */}
+        <Route path="/" element={<Home />} />
+        <Route path="/businesses/:websiteId" element={<BusinessDetail />} />
+
+        {/* ── Auth ─────────────────────────────────────────────────────── */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/auth/callback" element={<GoogleCallback />} />
 
         {/* Protected */}
+        {/* ── Protected ────────────────────────────────────────────────── */}
         <Route element={<ProtectedRoute />}>
           {/* User pages */}
           <Route path="/account" element={<Account />} />
@@ -53,6 +62,8 @@ function App() {
           />
           <Route
             path="/dashboard/listings/:websiteId/edit"
+          <Route path="/dashboard/listings/new" element={<ListingForm />} />
+          <Route path="/dashboard/listings/:websiteId/edit"
             element={<ListingForm />}
           />
           <Route path="/notifications" element={<Notifications />} />
@@ -62,6 +73,7 @@ function App() {
           <Route path="/subscriptions" element={<Subscriptions />} />
 
           {/* Admin */}
+          {/* ── Admin ──────────────────────────────────────────────────── */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route
               index
