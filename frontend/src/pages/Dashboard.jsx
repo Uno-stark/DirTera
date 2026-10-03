@@ -139,6 +139,12 @@ function Dashboard() {
 
                 <div className="dashboard-listing-actions">
                   <Link
+                    to={`/dashboard/listings/${listing.id}/analytics`}
+                    className="dashboard-secondary-button"
+                  >
+                    Analytics
+                  </Link>
+                  <Link
                     to={`/dashboard/listings/${listing.id}/edit`}
                     className="dashboard-secondary-button"
                   >

@@ -9,6 +9,7 @@ import BusinessDetail from "./pages/BusinessDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
 import GoogleCallback from "./pages/GoogleCallback";
 import Dashboard from "./pages/Dashboard";
+import Analytics from "./pages/Analytics";
 import ListingForm from "./pages/ListingForm";
 import AdminLayout from "./pages/Admin/AdminLayout";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
@@ -43,6 +44,10 @@ function App() {
           <Route
             path="/dashboard/listings/:websiteId/edit"
             element={<ListingForm />}
+          />
+          <Route
+            path="/dashboard/listings/:websiteId/analytics"
+            element={<Analytics />}
           />
 
           <Route path="/admin" element={<AdminLayout />}>
