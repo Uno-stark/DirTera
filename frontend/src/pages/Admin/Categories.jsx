@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Check, Minus } from "lucide-react";
 import api from "../../api/client";
 
+const CONFIRM_DELETE = (name) =>
+  window.confirm(`Deactivate "${name}"? It will be hidden from public listings.`);
+
 const EMPTY_FORM = {
   slug: "",
   name: "",
@@ -23,16 +26,19 @@ function Categories() {
   const [createError, setCreateError] = useState("");
 
   // edit modal
-  const [editTarget, setEditTarget] = useState(null); // category being edited
+  const [editTarget, setEditTarget] = useState(null);
   const [editForm, setEditForm] = useState({ icon: "", sort_order: 0 });
   const [updating, setUpdating] = useState(false);
   const [editError, setEditError] = useState("");
+
+  // delete
+  const [deletingSlug, setDeletingSlug] = useState(null);
 
   const loadCategories = async () => {
     setIsLoading(true);
     setError("");
     try {
-      const { data } = await api.get("/api/v1/categories");
+      const { data } = await api.get("/api/v1/categories", { params: { active_only: false } });
       setCategories(data.items ?? data);
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to load categories.");
@@ -103,6 +109,21 @@ function Categories() {
       setEditError(err.response?.data?.detail || "Failed to update category.");
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleDelete = async (cat) => {
+    if (!CONFIRM_DELETE(cat.name)) return;
+    setDeletingSlug(cat.slug);
+    setSuccess("");
+    try {
+      await api.delete(`/api/v1/categories/${cat.slug}`);
+      setSuccess(`Category "${cat.name}" deactivated.`);
+      loadCategories();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to deactivate category.");
+    } finally {
+      setDeletingSlug(null);
     }
   };
 
@@ -210,6 +231,7 @@ function Categories() {
                   <th>Sort</th>
                   <th>Active</th>
                   <th></th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -227,6 +249,16 @@ function Categories() {
                         onClick={() => openEdit(cat)}
                       >
                         Edit
+                      </button>
+                    </td>
+                    <td>
+                      <button
+                        className="admin-button-danger"
+                        disabled={!cat.is_active || deletingSlug === cat.slug}
+                        onClick={() => handleDelete(cat)}
+                        title={cat.is_active ? "Deactivate" : "Already inactive"}
+                      >
+                        {deletingSlug === cat.slug ? "…" : cat.is_active ? "Deactivate" : "Inactive"}
                       </button>
                     </td>
                   </tr>
