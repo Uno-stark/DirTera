@@ -92,3 +92,26 @@ class DomainOut(BaseModel):
     category_slug: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
+
+# ── Category with embedded domains ────────────────────────────────────────────
+
+class DomainSlim(BaseModel):
+    """Minimal domain fields needed for the nav dropdown."""
+    model_config = ConfigDict(from_attributes=True)
+
+    slug: str
+    name: str
+    icon: Optional[str] = None
+    sort_order: int
+
+
+class CategoryWithDomainsOut(BaseModel):
+    """Category with its active domains embedded — used by the nav mega-menu."""
+    model_config = ConfigDict(from_attributes=True)
+
+    slug: str
+    name: str
+    icon: Optional[str] = None
+    sort_order: int
+    domains: List[DomainSlim]
