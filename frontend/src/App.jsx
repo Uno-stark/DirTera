@@ -47,17 +47,14 @@ function App() {
           {/* User pages */}
           <Route path="/account" element={<Account />} />
           <Route path="/dashboard" element={<Dashboard />} />
-
           <Route
             path="/dashboard/listings/new"
             element={<ListingForm />}
           />
-
           <Route
             path="/dashboard/listings/:websiteId/edit"
             element={<ListingForm />}
           />
-
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/analytics/:websiteId" element={<Analytics />} />
