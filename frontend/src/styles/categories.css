@@ -1,51 +1,31 @@
+/* CategoryList is no longer rendered on the homepage — categories now live
+   in the Navbar category bar. This file retains styles used in other
+   contexts (e.g. filtering on browse pages). */
+
 .categories-section {
-  padding: 56px 20px;
+  padding: 40px 0;
   background: #ffffff;
-}
-
-.content-container {
-  width: min(1120px, 100%);
-  margin: 0 auto;
-}
-
-.section-heading {
-  margin-bottom: 24px;
-}
-
-.section-heading h2 {
-  margin: 0 0 6px;
-  color: #111827;
-  font-size: 22px;
-  letter-spacing: -0.4px;
-}
-
-.section-heading p {
-  margin: 0;
-  color: #6b7280;
-  font-size: 14px;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .category-list {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .category-item {
-  min-height: 64px;
-  padding: 16px;
+  padding: 8px 16px;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border-radius: 100px;
   background: #ffffff;
   color: #374151;
   font: inherit;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
-  text-align: left;
   cursor: pointer;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
+  transition: border-color 0.12s, background 0.12s;
+  white-space: nowrap;
 }
 
 .category-item:hover {
@@ -53,22 +33,6 @@
   background: #f9fafb;
 }
 
-@media (max-width: 700px) {
-  .category-list {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .category-list {
-    grid-template-columns: 1fr;
-  }
-  .category-status {
-  margin: 0;
-  padding: 12px 0;
-  color: #6b7280;
-  font-size: 14px;
-}
 .category-item-active {
   border-color: #111827;
   background: #111827;
@@ -79,4 +43,8 @@
   border-color: #111827;
   background: #1f2937;
 }
+
+.category-status {
+  color: #9ca3af;
+  font-size: 14px;
 }
