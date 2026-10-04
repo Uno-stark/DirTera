@@ -18,6 +18,18 @@ def _slug_or_none(v: Optional[str]) -> Optional[str]:
     return v
 
 
+def _split_image_urls(raw) -> List[str]:
+    """
+    Convert the stored comma-separated string to a clean list.
+    Accepts str, list, or None — safe to call from a field_validator.
+    """
+    if not raw:
+        return []
+    if isinstance(raw, list):
+        return [u.strip() for u in raw if u and u.strip()]
+    return [u.strip() for u in str(raw).split(",") if u.strip()]
+
+
 # ── Create / Update ────────────────────────────────────────────────────────────
 
 class WebsiteCreate(BaseModel):
@@ -25,14 +37,12 @@ class WebsiteCreate(BaseModel):
     url: str
     short_description: str
     full_description: Optional[str] = None
-    thumbnail_url: Optional[str] = None
-    logo_url: Optional[str] = None
-    category_slug: Optional[str] = None   # e.g. "technology"
-    domain_slug: Optional[str] = None     # e.g. "car_rental"
-    tags: Optional[str] = None            # comma-separated keywords
+    category_slug: Optional[str] = None
+    domain_slug: Optional[str] = None
+    tags: Optional[str] = None
     contact_email: Optional[str] = None
     phone_number: Optional[str] = None
-    social_links: Optional[str] = None    # JSON string
+    social_links: Optional[str] = None
 
     @field_validator("category_slug", "domain_slug", mode="before")
     @classmethod
@@ -45,8 +55,6 @@ class WebsiteUpdate(BaseModel):
     url: Optional[str] = None
     short_description: Optional[str] = None
     full_description: Optional[str] = None
-    thumbnail_url: Optional[str] = None
-    logo_url: Optional[str] = None
     category_slug: Optional[str] = None
     domain_slug: Optional[str] = None
     tags: Optional[str] = None
@@ -61,33 +69,26 @@ class WebsiteUpdate(BaseModel):
 
 
 class WebsiteAdminUpdate(BaseModel):
-    """Admin-only flag toggles."""
     is_premiered: Optional[bool] = None
     is_verified: Optional[bool] = None
     is_active: Optional[bool] = None
-
-
-class ApproveWebsite(BaseModel):
-    pass
 
 
 class RejectWebsite(BaseModel):
     rejection_message: str
 
 
+# ── Public output ──────────────────────────────────────────────────────────────
+
 class WebsitePublicOut(BaseModel):
-    """
-    Safe public listing schema — used in browse, top, multi-category,
-    premiered, and reviews endpoints.
-    """
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     name: str
     short_description: str
     full_description: Optional[str] = None
-    thumbnail_url: Optional[str] = None
     logo_url: Optional[str] = None
+    image_urls: List[str] = []
     category_slug: Optional[str] = None
     domain_slug: Optional[str] = None
     tags: Optional[str] = None
@@ -98,17 +99,18 @@ class WebsitePublicOut(BaseModel):
     total_clicks: int
     created_at: datetime
 
+    @field_validator("image_urls", mode="before")
+    @classmethod
+    def _parse_image_urls(cls, v):
+        return _split_image_urls(v)
+
 
 class WebsitePublicDetailOut(WebsitePublicOut):
-    """
-    Safe public detail schema — used for GET /{id}.
-    Adds the owner's display name and avatar (no email or ID).
-    """
     owner_display_name: Optional[str] = None
     owner_avatar_url: Optional[str] = None
 
 
-# ── Owner / Admin output (full data) ──────────────────────────────────────────
+# ── Owner / Admin output ───────────────────────────────────────────────────────
 
 class WebsiteOwnerOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -120,7 +122,6 @@ class WebsiteOwnerOut(BaseModel):
 
 
 class WebsiteOut(BaseModel):
-    """Full listing data — returned to the owner and admin only."""
     model_config = ConfigDict(from_attributes=True)
 
     id: str
@@ -129,8 +130,8 @@ class WebsiteOut(BaseModel):
     url: str
     short_description: str
     full_description: Optional[str] = None
-    thumbnail_url: Optional[str] = None
     logo_url: Optional[str] = None
+    image_urls: List[str] = []
     category_slug: Optional[str] = None
     domain_slug: Optional[str] = None
     tags: Optional[str] = None
@@ -147,59 +148,22 @@ class WebsiteOut(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    @field_validator("image_urls", mode="before")
+    @classmethod
+    def _parse_image_urls(cls, v):
+        return _split_image_urls(v)
+
 
 class WebsiteDetailOut(WebsiteOut):
-    """Full detail — includes owner snippet and rejection message. Owner/admin only."""
     owner: WebsiteOwnerOut
     rejection_message: Optional[str] = None
 
 
 class WebsitePendingOut(WebsiteOut):
-    """Admin approval queue — includes owner info."""
-    owner: WebsiteOwnerOut
-
-
-class WebsiteOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    owner_id: str
-    name: str
-    url: str
-    short_description: str
-    full_description: Optional[str] = None
-    thumbnail_url: Optional[str] = None
-    logo_url: Optional[str] = None
-    category_slug: Optional[str] = None
-    domain_slug: Optional[str] = None
-    tags: Optional[str] = None
-    contact_email: Optional[str] = None
-    phone_number: Optional[str] = None
-    social_links: Optional[str] = None
-    status: WebsiteStatus
-    is_active: bool
-    is_verified: bool
-    is_premiered: bool
-    total_clicks: int
-    avg_rating: float
-    review_count: int
-    created_at: datetime
-    updated_at: datetime
-
-
-class WebsiteDetailOut(WebsiteOut):
-    """Full detail — includes owner snippet and rejection message."""
-    owner: WebsiteOwnerOut
-    rejection_message: Optional[str] = None
-
-
-class WebsitePendingOut(WebsiteOut):
-    """Admin approval queue — includes owner info."""
     owner: WebsiteOwnerOut
 
 
 class WebsiteStatSummary(BaseModel):
-    """Summary card for client dashboard."""
     website_id: str
     website_name: str
     total_clicks: int
@@ -208,7 +172,7 @@ class WebsiteStatSummary(BaseModel):
     clicks_this_month: int
 
 
-# ── Discovery query response shapes ───────────────────────────────────────────
+# ── Discovery response shapes ──────────────────────────────────────────────────
 
 class TopNResponse(BaseModel):
     limit: int
@@ -218,12 +182,19 @@ class TopNResponse(BaseModel):
 
 
 class CategoryBlockItem(BaseModel):
-    """One section in a multi-category response."""
     category_slug: str
     items: List[WebsitePublicOut]
 
 
 class MultiCategoryResponse(BaseModel):
-    """Home-page feed: one block per requested category."""
     per_category: int
     blocks: List[CategoryBlockItem]
+
+
+# ── Image upload response ──────────────────────────────────────────────────────
+
+class ImageUploadResponse(BaseModel):
+    slot: str
+    url: str
+    logo_url: Optional[str] = None
+    image_urls: List[str] = []

@@ -56,9 +56,17 @@ class Settings(BaseSettings):
     # links.et Payment
     LINKSSET_API_KEY: str = ""
 
-    # File / Storage
-    UPLOAD_DIR: str = "uploads"
-    MAX_UPLOAD_SIZE_MB: int = 5
+    # Supabase Storage
+    SUPABASE_URL: str = ""
+    SUPABASE_SECRET_KEY: str = ""
+    SUPABASE_STORAGE_BUCKET: str = "website-images"
+
+    # Image limits
+    MAX_LOGO_SIZE_MB: float = 2.0
+    MAX_IMAGE_SIZE_MB: float = 5.0
+    MAX_IMAGES_PER_WEBSITE: int = 3
+    IMAGE_MAX_DIMENSION: int = 1920
+    IMAGE_WEBP_QUALITY: int = 82
 
     # Pagination
     DEFAULT_PAGE_SIZE: int = 20
