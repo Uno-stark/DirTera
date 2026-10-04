@@ -1,7 +1,7 @@
 import math
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +12,7 @@ from app.core.limiter import limiter
 from app.models.website import WebsiteStatus
 from app.schemas.common import PaginatedResponse
 from app.schemas.website import (
+    ImageUploadResponse,
     MultiCategoryResponse,
     RejectWebsite,
     TopNResponse,
@@ -24,7 +25,7 @@ from app.schemas.website import (
     WebsitePublicOut,
     WebsiteUpdate,
 )
-from app.services import analytics_service, website_service
+from app.services import analytics_service, image_service, website_service
 
 router = APIRouter(prefix="/websites", tags=["Websites"])
 _SORT_OPTIONS = ["score", "rating", "clicks", "newest"]
@@ -177,6 +178,133 @@ async def update_website(
 async def delete_website(website_id: str, current_user: CurrentUser, db: DBSession):
     website = await website_service.get_website_owned_by(website_id, current_user.id, db)
     await website_service.delete_website(website, db)
+    # Clean up Supabase Storage — best effort, non-blocking
+    await image_service.delete_all_website_images(website_id)
+
+
+# ── Image upload / delete ──────────────────────────────────────────────────────
+
+@router.post(
+    "/{website_id}/images/logo",
+    response_model=ImageUploadResponse,
+    summary="Upload or replace the listing logo",
+)
+async def upload_logo(
+    website_id: str,
+    current_user: CurrentUser,
+    db: DBSession,
+    file: UploadFile = File(..., description="Logo image (JPEG, PNG, WEBP — max 2 MB)"),
+):
+    
+    website = await website_service.get_website_owned_by(website_id, current_user.id, db)
+
+    url = await image_service.upload_image(
+        file=file, website_id=website_id, slot="logo", is_logo=True
+    )
+
+    # Persist URL to DB
+    website.logo_url = url
+    await db.flush()
+
+    from app.schemas.website import _split_image_urls
+    return ImageUploadResponse(
+        slot="logo",
+        url=url,
+        logo_url=url,
+        image_urls=_split_image_urls(website.image_urls),
+    )
+
+
+@router.post(
+    "/{website_id}/images",
+    response_model=ImageUploadResponse,
+    summary="Upload a gallery image (up to 3 per listing)",
+)
+async def upload_gallery_image(
+    website_id: str,
+    current_user: CurrentUser,
+    db: DBSession,
+    file: UploadFile = File(..., description="Gallery image (JPEG, PNG, WEBP — max 5 MB)"),
+):
+    
+    website = await website_service.get_website_owned_by(website_id, current_user.id, db)
+
+    from app.schemas.website import _split_image_urls
+    current_urls = _split_image_urls(website.image_urls)
+    max_images   = settings.MAX_IMAGES_PER_WEBSITE
+
+    if len(current_urls) >= max_images:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Maximum {max_images} gallery images allowed. "
+                   f"Delete one first via DELETE /{website_id}/images/{{index}}.",
+        )
+
+    # Determine next available slot index
+    slot_index = len(current_urls)
+    slot       = f"img_{slot_index}"
+
+    url = await image_service.upload_image(
+        file=file, website_id=website_id, slot=slot, is_logo=False
+    )
+
+    current_urls.append(url)
+    website.image_urls = ",".join(current_urls)
+    await db.flush()
+
+    return ImageUploadResponse(
+        slot=slot,
+        url=url,
+        logo_url=website.logo_url,
+        image_urls=current_urls,
+    )
+
+
+@router.delete(
+    "/{website_id}/images/{index}",
+    status_code=204,
+    summary="Delete a gallery image by index (0-2)",
+)
+async def delete_gallery_image(
+    website_id: str,
+    index: int,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+
+    website = await website_service.get_website_owned_by(website_id, current_user.id, db)
+
+    from app.schemas.website import _split_image_urls
+    current_urls = _split_image_urls(website.image_urls)
+
+    if index < 0 or index >= len(current_urls):
+        raise HTTPException(
+            status_code=404,
+            detail=f"No image at index {index}. Listing has {len(current_urls)} gallery image(s).",
+        )
+
+    slot = f"img_{index}"
+    await image_service.delete_image(website_id, slot)
+
+    current_urls.pop(index)
+    website.image_urls = ",".join(current_urls) if current_urls else None
+    await db.flush()
+
+
+@router.delete(
+    "/{website_id}/images/logo",
+    status_code=204,
+    summary="Delete the listing logo",
+)
+async def delete_logo(
+    website_id: str,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    website = await website_service.get_website_owned_by(website_id, current_user.id, db)
+    await image_service.delete_image(website_id, "logo")
+    website.logo_url = None
+    await db.flush()
 
 
 # ── Admin ──────────────────────────────────────────────────────────────────────
