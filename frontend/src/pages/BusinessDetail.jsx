@@ -3,7 +3,6 @@ import { Link, useParams } from "react-router-dom";
 
 import api from "../api/client";
 import Navbar from "../components/Navbar";
-import ReviewsSection from "../components/ReviewsSection";
 import "../styles/business-detail.css";
 
 function BusinessDetail() {
@@ -235,7 +234,7 @@ function BusinessDetail() {
               </section>
             )}
 
-            <ReviewsSection websiteId={websiteId} />
+            
           </article>
         </div>
       </main>
