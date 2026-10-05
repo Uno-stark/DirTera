@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import api from "../../api/client";
 
 function StatCard({ label, value, muted }) {
@@ -23,7 +22,6 @@ function Section({ title, children }) {
 }
 
 function AdminDashboard() {
-  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [error, setError] = useState("");
 
@@ -35,9 +33,6 @@ function AdminDashboard() {
 
   return (
     <div className="admin-page">
-      <button type="button" onClick={() => navigate("/")} style={{ marginBottom: 16, background: "none", border: "1px solid #d1d5db", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontSize: 14, color: "#374151" }}>
-        ← Browse
-      </button>
       <h1 className="admin-page-title">Admin Dashboard</h1>
       <p className="admin-subtitle">Platform-wide overview.</p>
 
