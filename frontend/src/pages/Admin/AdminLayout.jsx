@@ -4,6 +4,7 @@ import "../../styles/admin.css";
 
 const navItems = [
   { to: "/admin/dashboard", label: "Dashboard" },
+  { to: "/admin/requests", label: "Requests" },
   { to: "/admin/categories", label: "Categories" },
   { to: "/admin/domains", label: "Domains" },
   { to: "/admin/websites", label: "Websites" },
