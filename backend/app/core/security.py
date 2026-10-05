@@ -1,36 +1,18 @@
 from __future__ import annotations
 
-import bcrypt as _bcrypt_module
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+from jose import jwt
 
 from app.core.config import settings
 
-class _About:
-    __version__ = _bcrypt_module.__version__
-
-
-_bcrypt_module.__about__ = _About()
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-# ── Password helpers ──────────────────────────────────────────────────────────
-def hash_password(plain: str) -> str:
-    return pwd_context.hash(plain)
-
-
-def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
-
 
 # ── JWT helpers ───────────────────────────────────────────────────────────────
+
 def _create_token(subject: str, expires_delta: timedelta, extra: dict | None = None) -> str:
     payload: dict[str, Any] = {
-        "sub": subject,          # ULID string — no int conversion needed
+        "sub": subject,
         "iat": datetime.now(timezone.utc),
         "exp": datetime.now(timezone.utc) + expires_delta,
     }
