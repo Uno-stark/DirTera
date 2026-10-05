@@ -11,13 +11,6 @@ from app.core.database import Base
 from app.models.base import PgEnum, TimestampMixin, ULIDPrimaryKey
 
 
-class SubscriptionPlan(str, enum.Enum):
-    BASIC = "basic"
-    STANDARD = "standard"
-    PREMIUM = "premium"
-    PREMIERED = "premiered"
-
-
 class SubscriptionStatus(str, enum.Enum):
     PENDING = "pending"
     ACTIVE = "active"
