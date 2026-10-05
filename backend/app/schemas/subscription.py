@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.subscription import SubscriptionPlan, SubscriptionStatus
+from app.models.subscription import SubscriptionStatus
 
 
 # ── Plan config schemas (admin-managed) ───────────────────────────────────────
