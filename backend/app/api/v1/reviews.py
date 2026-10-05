@@ -166,9 +166,9 @@ async def admin_delete_review(review_id: str, _admin: AdminUser, db: DBSession):
 @router.patch("/{review_id}/hide", response_model=ReviewOut)
 async def toggle_review_visibility(
     review_id: str,
+    _admin: AdminUser,
+    db: DBSession,
     hide: bool = Query(..., description="true to hide, false to show"),
-    _admin: AdminUser = Depends(),
-    db: DBSession = Depends(),
 ):
     result = await db.execute(select(Review).where(Review.id == review_id))
     review = result.scalar_one_or_none()
