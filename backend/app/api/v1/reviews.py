@@ -1,16 +1,14 @@
 """
-Review / rating endpoints — future-ready.
+Review / rating endpoints.
 
-POST   /reviews/{website_id}           → leave a review (logged-in users)
-GET    /reviews/{website_id}           → list reviews for a website (public)
-PATCH  /reviews/{review_id}            → edit own review
-DELETE /reviews/{review_id}            → delete own review
+POST   /reviews/{website_id}      → leave a review (logged-in users)
+GET    /reviews/{website_id}      → list reviews for a website (public)
+PATCH  /reviews/{review_id}       → edit own review
+DELETE /reviews/{review_id}       → delete own review
 
 --- Admin ---
-DELETE /reviews/{review_id}/admin      → remove any review
-PATCH  /reviews/{review_id}/hide       → hide/show a review
-
-All {website_id} and {review_id} path parameters are ULID strings.
+DELETE /reviews/{review_id}/admin → remove any review
+PATCH  /reviews/{review_id}/hide  → hide/show a review
 """
 
 import math
@@ -19,10 +17,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import AdminUser, CurrentUser, DBSession
 from app.core.limiter import limiter
-from app.core.config import settings
 from app.models.review import Review
 from app.models.website import Website
 from app.schemas.common import PaginatedResponse
@@ -31,12 +29,12 @@ from app.schemas.review import ReviewCreate, ReviewOut, ReviewUpdate
 router = APIRouter(prefix="/reviews", tags=["Reviews"])
 
 
-async def _recalc_rating(website_id: str, db) -> None:
+async def _recalc_rating(website_id: str, db: AsyncSession) -> None:
     """Recompute avg_rating and review_count on the website row."""
     result = await db.execute(
         select(func.avg(Review.rating), func.count(Review.id)).where(
             Review.website_id == website_id,
-            Review.is_visible == True,  
+            Review.is_visible == True,  # noqa: E712
         )
     )
     avg, count = result.one()
@@ -88,16 +86,25 @@ async def list_reviews(
 ):
     query = select(Review).where(
         Review.website_id == website_id,
-        Review.is_visible == True,  
+        Review.is_visible == True,  # noqa: E712
     )
-    count_q = select(func.count()).select_from(query.subquery())
-    total = (await db.execute(count_q)).scalar_one()
-    query = query.offset((page - 1) * page_size).limit(page_size).order_by(
-        Review.created_at.desc()
-    )
-    rows = (await db.execute(query)).scalars().all()
+    total = (
+        await db.execute(select(func.count()).select_from(query.subquery()))
+    ).scalar_one()
+
+    rows = (
+        await db.execute(
+            query.offset((page - 1) * page_size)
+            .limit(page_size)
+            .order_by(Review.created_at.desc())
+        )
+    ).scalars().all()
+
     return PaginatedResponse(
-        items=list(rows), total=total, page=page, page_size=page_size,
+        items=list(rows),
+        total=total,
+        page=page,
+        page_size=page_size,
         total_pages=math.ceil(total / page_size) if total else 1,
     )
 
@@ -160,8 +167,8 @@ async def admin_delete_review(review_id: str, _admin: AdminUser, db: DBSession):
 async def toggle_review_visibility(
     review_id: str,
     hide: bool = Query(..., description="true to hide, false to show"),
-    _admin: AdminUser = None,
-    db: DBSession = None,
+    _admin: AdminUser = Depends(),
+    db: DBSession = Depends(),
 ):
     result = await db.execute(select(Review).where(Review.id == review_id))
     review = result.scalar_one_or_none()
