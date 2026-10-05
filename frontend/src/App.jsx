@@ -23,6 +23,11 @@ import Categories from "./pages/Admin/Categories";
 import Domains from "./pages/Admin/Domains";
 import AdminWebsites from "./pages/Admin/Websites";
 import Users from "./pages/Admin/Users";
+import AdminAnalysis from "./pages/Admin/AdminAnalytics";
+import AdminSubscriptions from "./pages/Admin/AdminSubscriptions";
+
+// Shared
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Shared
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -31,6 +36,11 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public */}
+        <Route path="/" element={<Home />} />
+        <Route path="/businesses/:websiteId" element={<BusinessDetail />} />
+
+        {/* Auth */}
         {/* ── Public ───────────────────────────────────────────────────── */}
         <Route path="/" element={<Home />} />
         <Route path="/businesses/:websiteId" element={<BusinessDetail />} />
@@ -40,10 +50,18 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/auth/callback" element={<GoogleCallback />} />
 
+        {/* Protected */}
         {/* ── Protected ────────────────────────────────────────────────── */}
         <Route element={<ProtectedRoute />}>
+          {/* User pages */}
           <Route path="/account" element={<Account />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route
+            path="/dashboard/listings/new"
+            element={<ListingForm />}
+          />
+          <Route
+            path="/dashboard/listings/:websiteId/edit"
           <Route path="/dashboard/listings/new" element={<ListingForm />} />
           <Route path="/dashboard/listings/:websiteId/edit"
             element={<ListingForm />}
@@ -54,18 +72,56 @@ function App() {
           <Route path="/subscribe/:websiteId" element={<Subscribe />} />
           <Route path="/subscriptions" element={<Subscriptions />} />
 
+          {/* Admin */}
           {/* ── Admin ──────────────────────────────────────────────────── */}
           <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="categories" element={<Categories />} />
-            <Route path="domains" element={<Domains />} />
-            <Route path="websites" element={<AdminWebsites />} />
-            <Route path="users" element={<Users />} />
+            <Route
+              index
+              element={<Navigate to="/admin/dashboard" replace />}
+            />
+
+            <Route
+              path="dashboard"
+              element={<AdminDashboard />}
+            />
+
+            <Route
+              path="analytics"
+              element={<AdminAnalysis />}
+            />
+
+            <Route
+              path="subscriptions"
+              element={<AdminSubscriptions />}
+            />
+
+            <Route
+              path="categories"
+              element={<Categories />}
+            />
+
+            <Route
+              path="domains"
+              element={<Domains />}
+            />
+
+            <Route
+              path="websites"
+              element={<AdminWebsites />}
+            />
+
+            <Route
+              path="users"
+              element={<Users />}
+            />
           </Route>
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Fallback */}
+        <Route
+          path="*"
+          element={<Navigate to="/" replace />}
+        />
       </Routes>
     </BrowserRouter>
   );
