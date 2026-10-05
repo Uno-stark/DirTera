@@ -7,7 +7,7 @@ from app.models.category import Category, Domain
 from app.models.website import Website, WebsiteStatus
 from app.models.click import ClickEvent
 from app.models.plan_config import SubscriptionPlanConfig
-from app.models.subscription import Subscription, SubscriptionPlan, SubscriptionStatus
+from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.review import Review
 from app.models.notification import Notification
 
@@ -20,7 +20,6 @@ __all__ = [
     "ClickEvent",
     "SubscriptionPlanConfig",
     "Subscription",
-    "SubscriptionPlan",
     "SubscriptionStatus",
     "Review",
     "Notification",
