@@ -146,6 +146,20 @@ class LinksETHealthFiltered(BaseModel):
 
 # ── Output schemas ────────────────────────────────────────────────────────────
 
+class AdminSubscriptionOut(BaseModel):
+    """Flat subscription row returned by the admin subscriptions list endpoint."""
+    model_config = ConfigDict(from_attributes=True)
+
+    user_id: str
+    website_id: str
+    plan: str
+    amount: float
+    currency: str
+    status: SubscriptionStatus
+    starts_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+
+
 class SubscriptionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

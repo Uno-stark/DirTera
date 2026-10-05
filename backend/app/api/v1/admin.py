@@ -13,6 +13,7 @@ from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.user import User
 from app.models.website import Website, WebsiteStatus
 from app.schemas.common import PaginatedResponse
+from app.schemas.subscription import AdminSubscriptionOut
 from app.schemas.website import WebsitePendingOut
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -95,6 +96,43 @@ async def pending_requests(
 
     return PaginatedResponse(
         items=[WebsitePendingOut.model_validate(r) for r in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=math.ceil(total / page_size) if total else 1,
+    )
+
+
+@router.get(
+    "/subscriptions",
+    response_model=PaginatedResponse[AdminSubscriptionOut],
+    summary="List all subscriptions (admin)",
+)
+async def list_all_subscriptions(
+    _admin: AdminUser,
+    db: DBSession,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status: SubscriptionStatus | None = Query(None, description="Filter by status"),
+):
+    """Returns a paginated list of every subscription across all users."""
+    base_q = select(Subscription)
+    if status is not None:
+        base_q = base_q.where(Subscription.status == status)
+
+    count_q = select(func.count()).select_from(base_q.subquery())
+    total = (await db.execute(count_q)).scalar_one()
+
+    rows = (
+        await db.execute(
+            base_q.order_by(Subscription.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    ).scalars().all()
+
+    return PaginatedResponse(
+        items=[AdminSubscriptionOut.model_validate(r) for r in rows],
         total=total,
         page=page,
         page_size=page_size,
