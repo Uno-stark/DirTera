@@ -7,7 +7,7 @@ const STATUS_OPTIONS = ["", "pending", "approved", "rejected"];
 function Websites() {
   const [websites, setWebsites] = useState([]);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("pending");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const debounceRef = useRef(null);
