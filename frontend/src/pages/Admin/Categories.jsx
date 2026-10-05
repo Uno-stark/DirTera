@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Minus } from "lucide-react";
+import { Check, Minus, Trash2 } from "lucide-react";
 import api from "../../api/client";
 
 const EMPTY_FORM = {
@@ -23,19 +23,28 @@ function Categories() {
   const [createError, setCreateError] = useState("");
 
   // edit modal
-  const [editTarget, setEditTarget] = useState(null); // category being edited
-  const [editForm, setEditForm] = useState({ icon: "", sort_order: 0 });
+  const [editTarget, setEditTarget] = useState(null);
+  const [editForm, setEditForm] = useState({
+    icon: "",
+    sort_order: 0,
+  });
   const [updating, setUpdating] = useState(false);
   const [editError, setEditError] = useState("");
+
+  // delete
+  const [deletingSlug, setDeletingSlug] = useState(null);
 
   const loadCategories = async () => {
     setIsLoading(true);
     setError("");
+
     try {
       const { data } = await api.get("/api/v1/categories");
       setCategories(data.items ?? data);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to load categories.");
+      setError(
+        err.response?.data?.detail || "Failed to load categories."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -48,6 +57,7 @@ function Categories() {
   // --- Create ---
   const handleCreateChange = (e) => {
     const { name, value, type, checked } = e.target;
+
     setCreateForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -56,19 +66,25 @@ function Categories() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
+
     setCreating(true);
     setCreateError("");
     setSuccess("");
+
     try {
       await api.post("/api/v1/categories", {
         ...createForm,
         sort_order: Number(createForm.sort_order),
       });
+
       setSuccess(`Category "${createForm.name}" created.`);
       setCreateForm(EMPTY_FORM);
-      loadCategories();
+
+      await loadCategories();
     } catch (err) {
-      setCreateError(err.response?.data?.detail || "Failed to create category.");
+      setCreateError(
+        err.response?.data?.detail || "Failed to create category."
+      );
     } finally {
       setCreating(false);
     }
@@ -77,32 +93,76 @@ function Categories() {
   // --- Edit ---
   const openEdit = (cat) => {
     setEditTarget(cat);
-    setEditForm({ icon: cat.icon ?? "", sort_order: cat.sort_order ?? 0 });
+
+    setEditForm({
+      icon: cat.icon ?? "",
+      sort_order: cat.sort_order ?? 0,
+    });
+
     setEditError("");
   };
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
-    setEditForm((prev) => ({ ...prev, [name]: value }));
+
+    setEditForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
+
     setUpdating(true);
     setEditError("");
     setSuccess("");
+
     try {
       await api.patch(`/api/v1/categories/${editTarget.slug}`, {
         icon: editForm.icon,
         sort_order: Number(editForm.sort_order),
       });
+
       setSuccess(`Category "${editTarget.name}" updated.`);
       setEditTarget(null);
-      loadCategories();
+
+      await loadCategories();
     } catch (err) {
-      setEditError(err.response?.data?.detail || "Failed to update category.");
+      setEditError(
+        err.response?.data?.detail || "Failed to update category."
+      );
     } finally {
       setUpdating(false);
+    }
+  };
+
+  // --- Delete ---
+  const handleDelete = async (category) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${category.name}"?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingSlug(category.slug);
+    setError("");
+    setSuccess("");
+
+    try {
+      await api.delete(`/api/v1/categories/${category.slug}`);
+
+      setSuccess(`Category "${category.name}" deleted.`);
+
+      await loadCategories();
+    } catch (err) {
+      setError(
+        err.response?.data?.detail || "Failed to delete category."
+      );
+    } finally {
+      setDeletingSlug(null);
     }
   };
 
@@ -116,6 +176,7 @@ function Categories() {
       {/* Create form */}
       <section className="admin-card">
         <h2>Add category</h2>
+
         <form className="admin-form" onSubmit={handleCreate}>
           <div className="admin-form-row">
             <label>
@@ -128,6 +189,7 @@ function Categories() {
                 required
               />
             </label>
+
             <label>
               Name
               <input
@@ -160,6 +222,7 @@ function Categories() {
                 placeholder="e.g. truck"
               />
             </label>
+
             <label>
               Sort order
               <input
@@ -169,6 +232,7 @@ function Categories() {
                 onChange={handleCreateChange}
               />
             </label>
+
             <label className="admin-checkbox-label">
               <input
                 name="is_active"
@@ -180,9 +244,15 @@ function Categories() {
             </label>
           </div>
 
-          {createError && <p className="admin-error">{createError}</p>}
+          {createError && (
+            <p className="admin-error">{createError}</p>
+          )}
 
-          <button type="submit" className="admin-button" disabled={creating}>
+          <button
+            type="submit"
+            className="admin-button"
+            disabled={creating}
+          >
             {creating ? "Creating…" : "Create category"}
           </button>
         </form>
@@ -209,25 +279,71 @@ function Categories() {
                   <th>Description</th>
                   <th>Sort</th>
                   <th>Active</th>
-                  <th></th>
+                  <th>Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {categories.map((cat) => (
                   <tr key={cat.slug}>
                     <td>{cat.icon}</td>
-                    <td><code>{cat.slug}</code></td>
-                    <td>{cat.name}</td>
-                    <td>{cat.description}</td>
-                    <td>{cat.sort_order}</td>
-                    <td>{cat.is_active ? <Check size={14} /> : <Minus size={14} color="#9ca3af" />}</td>
+
                     <td>
-                      <button
-                        className="admin-button-sm"
-                        onClick={() => openEdit(cat)}
+                      <code>{cat.slug}</code>
+                    </td>
+
+                    <td>{cat.name}</td>
+
+                    <td>{cat.description}</td>
+
+                    <td>{cat.sort_order}</td>
+
+                    <td>
+                      {cat.is_active ? (
+                        <Check size={14} />
+                      ) : (
+                        <Minus
+                          size={14}
+                          color="#9ca3af"
+                        />
+                      )}
+                    </td>
+
+                    <td>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          alignItems: "center",
+                        }}
                       >
-                        Edit
-                      </button>
+                        <button
+                          className="admin-button-sm"
+                          onClick={() => openEdit(cat)}
+                          disabled={deletingSlug === cat.slug}
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          className="admin-button-sm"
+                          onClick={() => handleDelete(cat)}
+                          disabled={deletingSlug === cat.slug}
+                          style={{
+                            color: "#dc2626",
+                            borderColor: "#dc2626",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          <Trash2 size={14} />
+
+                          {deletingSlug === cat.slug
+                            ? "Deleting…"
+                            : "Delete"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -239,9 +355,16 @@ function Categories() {
 
       {/* Edit modal */}
       {editTarget && (
-        <div className="admin-modal-backdrop" onClick={() => setEditTarget(null)}>
-          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="admin-modal-backdrop"
+          onClick={() => setEditTarget(null)}
+        >
+          <div
+            className="admin-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2>Edit "{editTarget.name}"</h2>
+
             <form className="admin-form" onSubmit={handleUpdate}>
               <label>
                 Icon
@@ -252,6 +375,7 @@ function Categories() {
                   placeholder="e.g. laptop"
                 />
               </label>
+
               <label>
                 Sort order
                 <input
@@ -262,12 +386,19 @@ function Categories() {
                 />
               </label>
 
-              {editError && <p className="admin-error">{editError}</p>}
+              {editError && (
+                <p className="admin-error">{editError}</p>
+              )}
 
               <div className="admin-form-row">
-                <button type="submit" className="admin-button" disabled={updating}>
+                <button
+                  type="submit"
+                  className="admin-button"
+                  disabled={updating}
+                >
                   {updating ? "Saving…" : "Save changes"}
                 </button>
+
                 <button
                   type="button"
                   className="admin-button-outline"
