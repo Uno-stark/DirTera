@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-in-production"
     ENVIRONMENT: str = "development"
 
-    # ── CORS ─────────────────────────────────────────────────────────────────
+    # ── CORS 
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
     @property
@@ -56,13 +56,30 @@ class Settings(BaseSettings):
     # links.et Payment
     LINKSSET_API_KEY: str = ""
 
-    # File / Storage
-    UPLOAD_DIR: str = "uploads"
-    MAX_UPLOAD_SIZE_MB: int = 5
+    # Supabase Storage
+    SUPABASE_URL: str = ""
+    SUPABASE_SECRET_KEY: str = ""
+    SUPABASE_STORAGE_BUCKET: str = "website-images"
+
+    # Image limits
+    MAX_LOGO_SIZE_MB: float = 2.0
+    MAX_IMAGE_SIZE_MB: float = 5.0
+    MAX_IMAGES_PER_WEBSITE: int = 3
+    IMAGE_MAX_DIMENSION: int = 1920
+    IMAGE_WEBP_QUALITY: int = 82
 
     # Pagination
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
+
+    # ── Rate limiting 
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_GLOBAL: str = "200/minute"
+    RATE_LIMIT_AUTH: str = "10/minute"
+    RATE_LIMIT_PAYMENT: str = "5/minute"
+    RATE_LIMIT_CLICK: str = "60/minute"
+    RATE_LIMIT_REVIEW: str = "10/minute"
+    REDIS_URL: Optional[str] = None
 
     # Email
     SMTP_HOST: Optional[str] = None

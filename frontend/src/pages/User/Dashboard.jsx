@@ -131,9 +131,9 @@ function Dashboard() {
             {listings.map((listing) => (
               <article key={listing.id} className="dashboard-listing-card">
                 <div className="dashboard-listing-info">
-                  {listing.thumbnail_url && (
+                  {listing.image_urls?.[0] && (
                     <img
-                      src={listing.thumbnail_url}
+                      src={listing.image_urls[0]}
                       alt=""
                       className="dashboard-listing-thumb"
                     />
