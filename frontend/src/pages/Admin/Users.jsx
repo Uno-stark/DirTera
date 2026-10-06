@@ -8,6 +8,7 @@ function Users() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [togglingId, setTogglingId] = useState(null);
+  const [deactivatingId, setDeactivatingId] = useState(null);
   const debounceRef = useRef(null);
 
   const loadUsers = async (query = "") => {
@@ -33,6 +34,19 @@ function Users() {
     setSearch(value);
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => loadUsers(value), 350);
+  };
+
+  const deactivateUser = async (user) => {
+    if (!window.confirm(`Deactivate ${user.email}? They will no longer be able to log in.`)) return;
+    setDeactivatingId(user.id);
+    try {
+      await api.delete(`/api/v1/users/${user.id}`);
+      setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, is_active: false } : u)));
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to deactivate user.");
+    } finally {
+      setDeactivatingId(null);
+    }
   };
 
   const toggleAdmin = async (user) => {
@@ -82,6 +96,7 @@ function Users() {
                   <th>Admin</th>
                   <th>Joined</th>
                   <th></th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -110,6 +125,16 @@ function Users() {
                           : u.is_admin
                           ? "Remove admin"
                           : "Make admin"}
+                      </button>
+                    </td>
+                    <td>
+                      <button
+                        className="admin-button-danger"
+                        disabled={!u.is_active || deactivatingId === u.id}
+                        onClick={() => deactivateUser(u)}
+                        title={u.is_active ? "Deactivate user" : "Already deactivated"}
+                      >
+                        {deactivatingId === u.id ? "…" : u.is_active ? "Deactivate" : "Inactive"}
                       </button>
                     </td>
                   </tr>
