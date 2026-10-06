@@ -24,6 +24,7 @@ import Categories from "./pages/Admin/Categories";
 import Domains from "./pages/Admin/Domains";
 import AdminWebsites from "./pages/Admin/Websites";
 import Users from "./pages/Admin/Users";
+import Requests from "./pages/Admin/Requests";
 import AdminAnalysis from "./pages/Admin/AdminAnalytics";
 import AdminSubscriptions from "./pages/Admin/AdminSubscriptions";
 
@@ -70,6 +71,7 @@ function AuthModalLayer() {
             <Route path="domains" element={<Domains />} />
             <Route path="websites" element={<AdminWebsites />} />
             <Route path="users" element={<Users />} />
+            <Route path="requests" element={<Requests />} />
           </Route>
         </Route>
 
