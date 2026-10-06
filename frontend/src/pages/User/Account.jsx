@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "../context/AuthContext";
-import { Link, useNavigate } from "react-router-dom";
-import api from "../api/client";
-import "../styles/account.css";
+import { useAuth } from "../../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import api from "../../api/client";
+import "../../styles/account.css";
 
 function Account() {
   const { user, setUser, logout } = useAuth();

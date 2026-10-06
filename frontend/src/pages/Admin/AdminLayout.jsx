@@ -12,7 +12,7 @@ const navItems = [
 ];
 
 function AdminLayout() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, logout } = useAuth();
 
   if (isLoading) return <p>Loading...</p>;
 
@@ -20,10 +20,15 @@ function AdminLayout() {
     return <Navigate to="/" replace />;
   }
 
+  const handleLogout = async () => {
+    await logout();
+  };
+
   return (
     <div className="admin-layout">
       <aside className="admin-sidebar">
         <div className="admin-brand">DirTera Admin</div>
+
         <nav className="admin-nav">
           {navItems.map(({ to, label }) => (
             <NavLink
@@ -37,6 +42,14 @@ function AdminLayout() {
             </NavLink>
           ))}
         </nav>
+
+        <button
+          type="button"
+          className="admin-logout"
+          onClick={handleLogout}
+        >
+          Logout
+        </button>
       </aside>
 
       <main className="admin-main">

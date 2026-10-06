@@ -1,64 +1,72 @@
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-
-import Home from "./pages/Home";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Account from "./pages/Account";
+// Public pages
+import Home           from "./pages/Home";
 import BusinessDetail from "./pages/BusinessDetail";
-import ProtectedRoute from "./components/ProtectedRoute";
-import GoogleCallback from "./pages/GoogleCallback";
-import Dashboard from "./pages/Dashboard";
-import Analytics from "./pages/Analytics";
-import ListingForm from "./pages/ListingForm";
-import AdminLayout from "./pages/Admin/AdminLayout";
+
+// Auth — unified single component
+import Auth           from "./pages/User/Auth";
+import GoogleCallback from "./pages/User/GoogleCallback";
+
+// User pages
+import Account       from "./pages/User/Account";
+import Dashboard     from "./pages/User/Dashboard";
+import ListingForm   from "./pages/User/ListingForm";
+import Notifications from "./pages/User/Notifications";
+import Analytics     from "./pages/User/Analytics";
+import Subscribe     from "./pages/User/Subscribe";
+import Subscriptions from "./pages/User/Subscriptions";
+
+// Admin pages
+import AdminLayout    from "./pages/Admin/AdminLayout";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
 import Categories from "./pages/Admin/Categories";
 import Domains from "./pages/Admin/Domains";
 import AdminWebsites from "./pages/Admin/Websites";
 import Users from "./pages/Admin/Users";
 import Requests from "./pages/Admin/Requests";
-import Subscribe from "./pages/Subscribe";
+import AdminAnalysis from "./pages/Admin/AdminAnalytics";
+import AdminSubscriptions from "./pages/Admin/AdminSubscriptions";
 
-function App() {
+// Shared
+import ProtectedRoute from "./components/ProtectedRoute";
+
+function AuthModalLayer() {
+  const location           = useLocation();
+  const backgroundLocation = location.state?.backgroundLocation;
+
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
+    <>
+      {/* ── Main routes (stay mounted while modal is open) ─────────── */}
+      <Routes location={backgroundLocation || location}>
+        <Route path="/"                      element={<Home />} />
+        <Route path="/businesses/:websiteId" element={<BusinessDetail />} />
+        <Route path="/auth/callback"         element={<GoogleCallback />} />
 
-        <Route path="/login" element={<Login />} />
+        {/* Auth — both /login and /register serve the unified Auth component */}
+        <Route path="/login"    element={<Auth />} />
+        <Route path="/register" element={<Auth />} />
 
-        <Route path="/auth/callback" element={<GoogleCallback />} />
-
-        <Route path="/register" element={<Register />} />
-
-        
-
-        <Route
-          path="/businesses/:websiteId"
-          element={<BusinessDetail />}
-        />
-
+        {/* Protected */}
         <Route element={<ProtectedRoute />}>
+          
+          {/* User pages */}
           <Route path="/account" element={<Account />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/listings/new" element={<ListingForm />} />
-          <Route
-            path="/dashboard/listings/:websiteId/edit"
-            element={<ListingForm />}
-          />
-          <Route
-            path="/dashboard/listings/:websiteId/analytics"
-            element={<Analytics />}
-          />
-          <Route
-            path="/dashboard/listings/:websiteId/subscribe"
-            element={<Subscribe />}
-          />
+          <Route path="/dashboard/listings/:websiteId/edit" element={<ListingForm />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/analytics/:websiteId" element={<Analytics />} />
+          <Route path="/subscribe/:websiteId" element={<Subscribe />} />
+          <Route path="/subscriptions" element={<Subscriptions />} />
 
+          {/* Admin */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="analytics" element={<AdminAnalysis />} />
+            <Route path="subscriptions" element={<AdminSubscriptions />} />
             <Route path="categories" element={<Categories />} />
             <Route path="domains" element={<Domains />} />
             <Route path="websites" element={<AdminWebsites />} />
@@ -69,6 +77,22 @@ function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+
+      {/* ── Modal overlay (only when backgroundLocation is set) ─────── */}
+      {backgroundLocation && (
+        <Routes>
+          <Route path="/login"    element={<Auth />} />
+          <Route path="/register" element={<Auth />} />
+        </Routes>
+      )}
+    </>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthModalLayer />
     </BrowserRouter>
   );
 }

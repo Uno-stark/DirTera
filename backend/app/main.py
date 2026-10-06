@@ -2,17 +2,21 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.core.limiter import limiter
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-
     yield
 
 
@@ -30,7 +34,29 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # ── Middleware ────────────────────────────────────────────────────────────
+    # ── Rate limiter ──────────────────────────────────────────────────────────
+    if settings.RATE_LIMIT_ENABLED:
+        app.state.limiter = limiter
+
+        app.add_middleware(SlowAPIMiddleware)
+
+        @app.exception_handler(RateLimitExceeded)
+        async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "detail": (
+                        f"Too many requests. "
+                        f"Limit: {exc.limit.limit}. "
+                        f"Please wait before retrying."
+                    )
+                },
+                headers={
+                    "Retry-After": str(exc.limit.reset_at) if hasattr(exc.limit, "reset_at") else "60",
+                },
+            )
+
+    # ── CORS 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins_list,
@@ -42,7 +68,7 @@ def create_app() -> FastAPI:
     if not settings.DEBUG:
         app.add_middleware(
             TrustedHostMiddleware,
-            allowed_hosts=["*"],  # tighten this in production
+            allowed_hosts=["*"], 
         )
 
     # ── Routers ───────────────────────────────────────────────────────────────

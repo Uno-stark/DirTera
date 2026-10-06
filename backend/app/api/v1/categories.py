@@ -28,6 +28,7 @@ from app.schemas.category import (
     CategoryCreate,
     CategoryOut,
     CategoryUpdate,
+    CategoryWithDomainsOut,
     DomainCreate,
     DomainOut,
     DomainUpdate,
@@ -40,6 +41,16 @@ router = APIRouter(tags=["Taxonomy"])
 # ══════════════════════════════════════════════════════════════════════════════
 #  CATEGORIES
 # ══════════════════════════════════════════════════════════════════════════════
+
+@router.get(
+    "/categories/with-domains",
+    response_model=List[CategoryWithDomainsOut],
+    summary="List active categories with their domains embedded (nav mega-menu)",
+)
+async def list_categories_with_domains(db: DBSession):
+    
+    return await category_service.list_categories_with_domains(db)
+
 
 @router.get("/categories", response_model=List[CategoryOut], summary="List categories")
 async def list_categories(

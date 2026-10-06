@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.deps import AdminUser, DBSession
 from app.models.category import Category, Domain
+from app.models.plan_config import SubscriptionPlanConfig
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.user import User
 from app.models.website import Website, WebsiteStatus
@@ -39,6 +40,8 @@ async def dashboard_stats(_admin: AdminUser, db: DBSession):
     active_categories    = await _count(Category,     Category.is_active == True)   # noqa: E712
     total_domains        = await _count(Domain)
     active_domains       = await _count(Domain,       Domain.is_active == True)     # noqa: E712
+    total_plans          = await _count(SubscriptionPlanConfig)
+    active_plans         = await _count(SubscriptionPlanConfig, SubscriptionPlanConfig.is_active == True)  # noqa: E712
 
     return {
         "users": {
@@ -58,6 +61,10 @@ async def dashboard_stats(_admin: AdminUser, db: DBSession):
         "taxonomy": {
             "categories": {"total": total_categories, "active": active_categories},
             "domains":    {"total": total_domains,    "active": active_domains},
+        },
+        "plans": {
+            "total": total_plans,
+            "active": active_plans,
         },
     }
 
