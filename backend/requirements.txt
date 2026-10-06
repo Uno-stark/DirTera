@@ -6,6 +6,7 @@ uvicorn[standard]==0.30.1
 sqlalchemy==2.0.31
 alembic==1.13.2
 asyncpg==0.29.0
+aiosqlite==0.20.0      # SQLite async driver (dev / CI)
 
 # Config & validation 
 pydantic==2.13.5
