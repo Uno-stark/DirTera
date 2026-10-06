@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.subscription import SubscriptionPlan, SubscriptionStatus
+from app.models.subscription import SubscriptionStatus
 
 
 # ── Plan config schemas (admin-managed) ───────────────────────────────────────
@@ -145,6 +145,20 @@ class LinksETHealthFiltered(BaseModel):
 
 
 # ── Output schemas ────────────────────────────────────────────────────────────
+
+class AdminSubscriptionOut(BaseModel):
+    """Flat subscription row returned by the admin subscriptions list endpoint."""
+    model_config = ConfigDict(from_attributes=True)
+
+    user_id: str
+    website_id: str
+    plan: str
+    amount: float
+    currency: str
+    status: SubscriptionStatus
+    starts_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+
 
 class SubscriptionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

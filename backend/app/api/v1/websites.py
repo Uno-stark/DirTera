@@ -24,6 +24,7 @@ from app.schemas.website import (
     WebsitePublicDetailOut,
     WebsitePublicOut,
     WebsiteUpdate,
+    _split_image_urls,
 )
 from app.services import analytics_service, image_service, website_service
 
@@ -206,7 +207,6 @@ async def upload_logo(
     website.logo_url = url
     await db.flush()
 
-    from app.schemas.website import _split_image_urls
     return ImageUploadResponse(
         slot="logo",
         url=url,
@@ -229,7 +229,6 @@ async def upload_gallery_image(
     
     website = await website_service.get_website_owned_by(website_id, current_user.id, db)
 
-    from app.schemas.website import _split_image_urls
     current_urls = _split_image_urls(website.image_urls)
     max_images   = settings.MAX_IMAGES_PER_WEBSITE
 
@@ -274,7 +273,6 @@ async def delete_gallery_image(
 
     website = await website_service.get_website_owned_by(website_id, current_user.id, db)
 
-    from app.schemas.website import _split_image_urls
     current_urls = _split_image_urls(website.image_urls)
 
     if index < 0 or index >= len(current_urls):

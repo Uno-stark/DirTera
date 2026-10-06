@@ -1,14 +1,12 @@
 """
 Authentication endpoints.
 
-GET  /auth/google                  → redirect URL for Google OAuth
-POST /auth/google/callback         → exchange code, return JWT
-POST /auth/register                → email/password registration
-POST /auth/login                   → email/password login
-POST /auth/refresh                 → refresh access token
-GET  /auth/me                      → current user profile
+GET  /auth/google          → redirect URL for Google OAuth
+GET  /auth/google/callback → browser OAuth callback (redirects to frontend)
+POST /auth/google/callback → exchange code for JWT (SPA flow)
+POST /auth/refresh         → refresh access token
+GET  /auth/me              → current user profile
 """
-
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
@@ -16,10 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.deps import CurrentUser, get_current_user
+from app.core.deps import CurrentUser
 from app.core.limiter import limiter
-from app.schemas.auth import GoogleCallbackRequest, LoginRequest, RefreshRequest, TokenResponse
-from app.schemas.user import UserCreate, UserOut
+from app.schemas.auth import GoogleCallbackRequest, RefreshRequest, TokenResponse
+from app.schemas.user import UserOut
 from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -69,36 +67,6 @@ async def google_callback_api(
 ):
     _, tokens = await auth_service.google_login_or_register(code=payload.code, db=db)
     return tokens
-
-
-# @router.post(
-#     "/register",
-#     response_model=UserOut,
-#     status_code=201,
-#     summary="Register with email/password (admin/CLI)",
-# )
-# @limiter.limit(settings.RATE_LIMIT_AUTH)
-# async def register(
-#     request: Request,
-#     payload: UserCreate,
-#     db: AsyncSession = Depends(get_db),
-# ):
-#     user = await auth_service.register_user(payload, db)
-#     return user
-
-
-# @router.post(
-#     "/login",
-#     response_model=TokenResponse,
-#     summary="Login with email/password (admin/CLI)",
-# )
-# @limiter.limit(settings.RATE_LIMIT_AUTH)
-# async def login(
-#     request: Request,
-#     payload: LoginRequest,
-#     db: AsyncSession = Depends(get_db),
-# ):
-#     return await auth_service.login_with_password(payload.email, payload.password, db)
 
 
 @router.post("/refresh", response_model=TokenResponse, summary="Refresh access token")
