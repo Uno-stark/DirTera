@@ -27,17 +27,14 @@ if _is_sqlite:
     )
 
 elif _using_pooler:
-    # Supabase transaction pooler via psycopg3 (no prepared statement issues)
-    # Swap asyncpg driver for psycopg in the URL
-    psycopg_url = settings.DATABASE_URL.replace(
-        "postgresql+asyncpg://", "postgresql+psycopg://"
-    ).split("?")[0]
-
+    
     engine = create_async_engine(
-        psycopg_url,
+        settings.DATABASE_URL.split("?")[0],
         echo=settings.DEBUG,
         poolclass=NullPool,
+        connect_args={"statement_cache_size": 0},
     )
+
 else:
     # Direct Postgres — asyncpg with SSL
     engine = create_async_engine(
