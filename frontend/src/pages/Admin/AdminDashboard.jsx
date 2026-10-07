@@ -5,7 +5,6 @@ import {
   Globe,
   ClipboardList,
   CreditCard,
-  BarChart2,
   Tag,
   Link,
 } from "lucide-react";
@@ -28,9 +27,7 @@ function StatCard({ label, value, icon: Icon, highlight, onClick }) {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span
-          style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}
-        >
+        <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}>
           {label}
         </span>
         {Icon && (
@@ -54,6 +51,39 @@ function StatCard({ label, value, icon: Icon, highlight, onClick }) {
   );
 }
 
+/* ─── Shared mini-widget shell ───────────────────────────────── */
+
+function DataWidget({ heading, loading, error, empty, children, footerLabel, footerPath, navigate }) {
+  return (
+    <div className="admin-card" style={{ marginBottom: 0 }}>
+      <h2 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 700, color: "#111827" }}>
+        {heading}
+      </h2>
+
+      {loading && (
+        <p style={{ color: "#6b7280", fontSize: 14 }}>Loading...</p>
+      )}
+
+      {!loading && error && <p className="admin-error">{error}</p>}
+
+      {!loading && !error && empty && (
+        <p className="admin-empty">No data available.</p>
+      )}
+
+      {!loading && !error && !empty && children}
+
+      <div style={{ marginTop: 12 }}>
+        <button
+          style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, color: "#2563eb" }}
+          onClick={() => navigate(footerPath)}
+        >
+          {footerLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main component ─────────────────────────────────────────── */
 
 function AdminDashboard() {
@@ -69,6 +99,21 @@ function AdminDashboard() {
   const [reqLoading, setReqLoading] = useState(true);
   const [reqError, setReqError] = useState("");
 
+  // Recent users
+  const [recentUsers, setRecentUsers] = useState([]);
+  const [recentUsersLoading, setRecentUsersLoading] = useState(true);
+  const [recentUsersError, setRecentUsersError] = useState("");
+
+  // Recent subscriptions
+  const [recentSubscriptions, setRecentSubscriptions] = useState([]);
+  const [recentSubscriptionsLoading, setRecentSubscriptionsLoading] = useState(true);
+  const [recentSubscriptionsError, setRecentSubscriptionsError] = useState("");
+
+  // Top websites
+  const [topWebsites, setTopWebsites] = useState([]);
+  const [topWebsitesLoading, setTopWebsitesLoading] = useState(true);
+  const [topWebsitesError, setTopWebsitesError] = useState("");
+
   useEffect(() => {
     // Fetch stats
     api
@@ -81,12 +126,41 @@ function AdminDashboard() {
     api
       .get("/api/v1/admin/requests", { params: { page: 1, page_size: 5 } })
       .then(({ data }) => {
-        // Handle both array response and paginated { items: [] } shape
         const items = Array.isArray(data) ? data : data.items ?? [];
         setRequests(items);
       })
       .catch(() => setReqError("Failed to load pending requests."))
       .finally(() => setReqLoading(false));
+
+    // Fetch recent users
+    api
+      .get("/api/v1/users", { params: { page: 1, page_size: 5 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data.items ?? [];
+        setRecentUsers(items);
+      })
+      .catch(() => setRecentUsersError("Failed to load recent users."))
+      .finally(() => setRecentUsersLoading(false));
+
+    // Fetch recent subscriptions
+    api
+      .get("/api/v1/admin/subscriptions", { params: { page: 1, page_size: 5 } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data.items ?? [];
+        setRecentSubscriptions(items);
+      })
+      .catch(() => setRecentSubscriptionsError("Failed to load recent subscriptions."))
+      .finally(() => setRecentSubscriptionsLoading(false));
+
+    // Fetch top websites
+    api
+      .get("/api/v1/websites/top", { params: { limit: 5, sort_by: "clicks" } })
+      .then(({ data }) => {
+        const items = Array.isArray(data) ? data : data.items ?? [];
+        setTopWebsites(items);
+      })
+      .catch(() => setTopWebsitesError("Failed to load top websites."))
+      .finally(() => setTopWebsitesLoading(false));
   }, []);
 
   if (statsLoading) {
@@ -156,17 +230,16 @@ function AdminDashboard() {
         </div>
       )}
 
-      {/* ── Two-column main area ───────────────────────────── */}
+      {/* ── Main area: Pending Requests (wide left) + widgets (right) ── */}
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
+          display: "flex",
           gap: 24,
           alignItems: "start",
         }}
       >
-        {/* Left — Recent Pending Requests */}
-        <div className="admin-card" style={{ marginBottom: 0 }}>
+        {/* Left — Recent Pending Requests (wider) */}
+        <div className="admin-card" style={{ flex: 2, marginBottom: 0 }}>
           <h2 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700, color: "#111827" }}>
             Recent Pending Requests
           </h2>
@@ -228,38 +301,117 @@ function AdminDashboard() {
           </div>
         </div>
 
-        {/* Right — Quick Actions */}
-        <div className="admin-card" style={{ marginBottom: 0 }}>
-          <h2 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700, color: "#111827" }}>
-            Quick Actions
-          </h2>
+        {/* Right — Three stacked data widgets */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
 
-          {[
-            { label: "Users", icon: Users, path: "/admin/users" },
-            { label: "Websites", icon: Globe, path: "/admin/websites" },
-            { label: "Review Requests", icon: ClipboardList, path: "/admin/requests" },
-            { label: "Subscriptions", icon: CreditCard, path: "/admin/subscriptions" },
-            { label: "Analytics", icon: BarChart2, path: "/admin/analytics" },
-            { label: "Categories", icon: Tag, path: "/admin/categories" },
-            { label: "Domains", icon: Link, path: "/admin/domains" },
-          ].map(({ label, icon: Icon, path }) => (
-            <button
-              key={path}
-              className="admin-button-outline"
-              onClick={() => navigate(path)}
-              style={{
-                width: "100%",
-                textAlign: "left",
-                marginBottom: 8,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <Icon size={16} />
-              {label}
-            </button>
-          ))}
+          {/* Widget A — Recent Users */}
+          <DataWidget
+            heading="Recent Users"
+            loading={recentUsersLoading}
+            error={recentUsersError}
+            empty={recentUsers.length === 0}
+            footerLabel="View All Users →"
+            footerPath="/admin/users"
+            navigate={navigate}
+          >
+            <div className="admin-table-wrapper">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Joined</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentUsers.map((u) => (
+                    <tr key={u.id}>
+                      <td style={{ fontWeight: 500 }}>{u.username}</td>
+                      <td style={{ color: "#6b7280" }}>{u.email}</td>
+                      <td style={{ color: "#6b7280", whiteSpace: "nowrap" }}>
+                        {u.created_at
+                          ? new Date(u.created_at).toLocaleDateString()
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DataWidget>
+
+          {/* Widget B — Recent Subscriptions */}
+          <DataWidget
+            heading="Recent Subscriptions"
+            loading={recentSubscriptionsLoading}
+            error={recentSubscriptionsError}
+            empty={recentSubscriptions.length === 0}
+            footerLabel="View All Subscriptions →"
+            footerPath="/admin/subscriptions"
+            navigate={navigate}
+          >
+            <div className="admin-table-wrapper">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Plan</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentSubscriptions.map((sub) => (
+                    <tr key={sub.id}>
+                      <td style={{ fontWeight: 500 }}>
+                        {sub.user_id ? String(sub.user_id).slice(0, 8) : "—"}
+                      </td>
+                      <td style={{ color: "#6b7280" }}>{sub.plan_id ?? "—"}</td>
+                      <td style={{ color: "#6b7280" }}>{sub.status ?? "—"}</td>
+                      <td style={{ color: "#6b7280", whiteSpace: "nowrap" }}>
+                        {sub.created_at
+                          ? new Date(sub.created_at).toLocaleDateString()
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DataWidget>
+
+          {/* Widget C — Top Websites */}
+          <DataWidget
+            heading="Top Websites"
+            loading={topWebsitesLoading}
+            error={topWebsitesError}
+            empty={topWebsites.length === 0}
+            footerLabel="View All Websites →"
+            footerPath="/admin/websites"
+            navigate={navigate}
+          >
+            <div className="admin-table-wrapper">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Clicks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topWebsites.map((site) => (
+                    <tr key={site.id}>
+                      <td style={{ fontWeight: 500 }}>{site.name}</td>
+                      <td style={{ color: "#6b7280" }}>{site.category ?? "—"}</td>
+                      <td style={{ color: "#6b7280" }}>{site.click_count ?? 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DataWidget>
+
         </div>
       </div>
     </div>
