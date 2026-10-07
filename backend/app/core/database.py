@@ -27,16 +27,13 @@ if _is_sqlite:
     )
 
 elif _using_pooler:
-    # Supabase transaction pooler via psycopg3 (no prepared statement issues)
-    # Swap asyncpg driver for psycopg in the URL
-    psycopg_url = settings.DATABASE_URL.replace(
-        "postgresql+asyncpg://", "postgresql+psycopg://"
-    ).split("?")[0]
-
+    # PgBouncer / Supabase transaction pooler — must disable prepared statements
+    # and use NullPool so SQLAlchemy doesn't hold connections open between requests.
     engine = create_async_engine(
-        psycopg_url,
+        settings.DATABASE_URL.split("?")[0],
         echo=settings.DEBUG,
         poolclass=NullPool,
+        connect_args={"statement_cache_size": 0},
     )
 else:
     # Direct Postgres — asyncpg with SSL
@@ -47,7 +44,7 @@ else:
         max_overflow=settings.DB_MAX_OVERFLOW,
         pool_recycle=settings.DB_POOL_RECYCLE,
         pool_pre_ping=True,
-        connect_args={"ssl": "require"},
+        connect_args={"ssl": "require", "statement_cache_size": 0},
     )
 
 AsyncSessionLocal = async_sessionmaker(
