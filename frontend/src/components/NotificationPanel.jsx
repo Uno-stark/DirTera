@@ -6,6 +6,19 @@ import api from "../api/client";
 import { keys } from "../api/queries";
 import { fmtRelative } from "../utils/format";
 
+// ── Shared hook — lets any component read the unread count ────────────────────
+export function useNotifCount() {
+  const { data } = useQuery({
+    queryKey: keys.notifCount(),
+    queryFn:  () => api.get("/api/v1/notifications", {
+      params: { page: 1, page_size: 1, unread_only: true },
+    }).then((r) => r.data.total ?? 0),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+  return data ?? 0;
+}
+
 const PAGE_SIZE = 10;
 
 // ── Panel portal ──────────────────────────────────────────────────────────────
@@ -94,24 +107,24 @@ function Panel({ anchorRef, onClose, notifications, unreadCount, isLoading,
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
-function NotificationPanel() {
-  const [open,         setOpen]       = useState(false);
-  const [page,         setPage]       = useState(1);
-  const [allItems,     setAllItems]   = useState([]);
+// externalOpen / onExternalClose — optional: lets a parent (UserMenu) drive
+// the open state without showing the bell button itself.
+// anchorOverride — optional ref to position the panel against a different element
+function NotificationPanel({ externalOpen, onExternalClose, hideBell = false, anchorOverride }) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const [page,         setPage]         = useState(1);
+  const [allItems,     setAllItems]     = useState([]);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
-  const buttonRef = useRef(null);
+  const buttonRef  = useRef(null);
   const queryClient = useQueryClient();
 
-  // ── Unread count badge (cheap — 1 item query, refetches every 60 s) ───────
-  const { data: countData } = useQuery({
-    queryKey: keys.notifCount(),
-    queryFn:  () => api.get("/api/v1/notifications", {
-      params: { page: 1, page_size: 1, unread_only: true },
-    }).then((r) => r.data.total ?? 0),
-    refetchInterval: 60_000,
-    staleTime: 30_000,
-  });
-  const unreadCount = countData ?? 0;
+  // Use anchorOverride if provided, otherwise fall back to the bell button ref
+  const effectiveAnchorRef = anchorOverride || buttonRef;
+
+  // Merge external + internal open state
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+
+  const unreadCount = useNotifCount();
 
   // ── Full list (only fetched when panel opens) ─────────────────────────────
   const { data: pageData, isLoading } = useQuery({
@@ -132,11 +145,25 @@ function NotificationPanel() {
   }, [pageData, page]);
 
   const toggle = useCallback(() => {
-    setOpen((v) => {
+    if (externalOpen !== undefined) return; // driven externally
+    setInternalOpen((v) => {
       if (!v) { setPage(1); setAllItems([]); }
       return !v;
     });
-  }, []);
+  }, [externalOpen]);
+
+  // Reset pagination when opened externally
+  useEffect(() => {
+    if (externalOpen) { setPage(1); setAllItems([]); }
+  }, [externalOpen]);
+
+  const handleClose = useCallback(() => {
+    if (externalOpen !== undefined) {
+      onExternalClose?.();
+    } else {
+      setInternalOpen(false);
+    }
+  }, [externalOpen, onExternalClose]);
 
   const handleLoadMore = () => setPage((p) => p + 1);
 
@@ -170,22 +197,24 @@ function NotificationPanel() {
 
   return (
     <>
-      <button ref={buttonRef} type="button" className="notif-bell-btn"
-        onClick={toggle}
-        aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
-        aria-expanded={open} aria-haspopup="dialog">
-        <Bell size={18} strokeWidth={1.8} />
-        {unreadCount > 0 && (
-          <span className="notif-bell-badge" aria-hidden="true">
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
-        )}
-      </button>
+      {!hideBell && (
+        <button ref={buttonRef} type="button" className="notif-bell-btn"
+          onClick={toggle}
+          aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
+          aria-expanded={open} aria-haspopup="dialog">
+          <Bell size={18} strokeWidth={1.8} />
+          {unreadCount > 0 && (
+            <span className="notif-bell-badge" aria-hidden="true">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </button>
+      )}
 
       {open && (
         <Panel
-          anchorRef={buttonRef}
-          onClose={() => setOpen(false)}
+          anchorRef={effectiveAnchorRef}
+          onClose={handleClose}
           notifications={allItems}
           unreadCount={unreadCount}
           isLoading={isLoading}

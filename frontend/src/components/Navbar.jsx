@@ -6,6 +6,7 @@ import { Search, X } from "lucide-react";
 import { useAuth }          from "../context/AuthContext";
 import { useTaxonomy }      from "../context/TaxonomyContext";
 import NotificationPanel    from "./NotificationPanel";
+import UserMenu             from "./UserMenu";
 import logoSrc              from "../assets/logo.js";
 import "../styles/navbar.css";
 
@@ -105,11 +106,14 @@ function CategoryItem({ category }) {
 
 // ── Navbar ────────────────────────────────────────────────────────────────────
 function Navbar({ transparent = false }) {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { isAuthenticated }               = useAuth();
   const { categories, isLoading }         = useTaxonomy();
   const navigate                          = useNavigate();
   const location                          = useLocation();
   const [query, setQuery]                 = useState("");
+  const [notifOpen, setNotifOpen]         = useState(false);
+  // A fixed anchor for the notification panel when opened from inside UserMenu
+  const notifAnchorRef                    = useRef(null);
 
   const goModal = (path) =>
     navigate(path, { state: { backgroundLocation: location } });
@@ -121,6 +125,9 @@ function Navbar({ transparent = false }) {
   };
 
   const clearSearch = () => { setQuery(""); navigate("/"); };
+
+  const openNotif  = useCallback(() => setNotifOpen(true),  []);
+  const closeNotif = useCallback(() => setNotifOpen(false), []);
 
   return (
     <header className={`site-header${transparent ? " site-header-transparent" : ""}`}>
@@ -159,17 +166,19 @@ function Navbar({ transparent = false }) {
           <nav className="main-nav" aria-label="User navigation">
             {isAuthenticated ? (
               <>
-                {user?.is_admin && (
-                  <Link to="/admin/dashboard" className="nav-link">Admin</Link>
-                )}
-                <Link to="/dashboard" className="nav-link">Dashboard</Link>
+                {/* Hidden anchor for notification panel positioning */}
+                <span ref={notifAnchorRef} className="notif-anchor" aria-hidden="true" />
 
-                {/* Bell icon — opens notification popup */}
-                <NotificationPanel />
+                {/* Notification panel — driven externally by UserMenu */}
+                <NotificationPanel
+                  hideBell
+                  externalOpen={notifOpen}
+                  onExternalClose={closeNotif}
+                  anchorOverride={notifAnchorRef}
+                />
 
-                <button type="button" className="nav-button" onClick={logout}>
-                  Sign out
-                </button>
+                {/* Circular profile + burger dropdown */}
+                <UserMenu onNotifOpen={openNotif} />
               </>
             ) : (
               <button
