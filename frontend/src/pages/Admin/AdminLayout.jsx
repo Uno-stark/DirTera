@@ -50,6 +50,24 @@ function AdminLayout() {
 
       <main className="admin-main">
         <Outlet />
+
+        <footer className="admin-footer">
+          <div className="admin-footer-inner">
+            <div className="admin-footer-brand">
+              <span className="admin-footer-logo">DirTera</span>
+              <span className="admin-footer-tagline">Admin Console</span>
+            </div>
+            <div className="admin-footer-links">
+              <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a>
+              <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>
+              <a href="mailto:support@dirterra.com">Support</a>
+              <a href="/docs" target="_blank" rel="noreferrer">Documentation</a>
+            </div>
+            <div className="admin-footer-copy">
+              © {new Date().getFullYear()} DirTera. All rights reserved. &nbsp;·&nbsp; v1.0.0
+            </div>
+          </div>
+        </footer>
       </main>
     </div>
   );
