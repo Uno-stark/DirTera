@@ -16,8 +16,6 @@ const GoogleCallback = lazy(() => import("./pages/User/GoogleCallback"));
 // ── User pages ────────────────────────────────────────────────────────────────
 const Account       = lazy(() => import("./pages/User/Account"));
 const Dashboard     = lazy(() => import("./pages/User/Dashboard"));
-const ListingForm   = lazy(() => import("./pages/User/ListingForm"));
-const Analytics     = lazy(() => import("./pages/User/Analytics"));
 const Subscribe     = lazy(() => import("./pages/User/Subscribe"));
 
 // ── Admin pages ───────────────────────────────────────────────────────────────
@@ -57,10 +55,6 @@ function AuthModalLayer() {
           {/* User pages */}
           <Route path="/account"                              element={<Account />} />
           <Route path="/dashboard"                            element={<Dashboard />} />
-          <Route path="/dashboard/listings/new"               element={<ListingForm />} />
-          <Route path="/dashboard/listings/:websiteId/edit"   element={<ListingForm />} />
-          <Route path="/analytics"                            element={<Analytics />} />
-          <Route path="/analytics/:websiteId"                 element={<Analytics />} />
           <Route path="/subscribe/:websiteId"                 element={<Subscribe />} />
 
           {/* Admin */}
