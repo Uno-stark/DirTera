@@ -10,6 +10,7 @@ from app.models.plan_config import SubscriptionPlanConfig
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.review import Review
 from app.models.notification import Notification
+from app.models.token_blocklist import TokenBlocklist
 
 __all__ = [
     "User",
@@ -23,4 +24,5 @@ __all__ = [
     "SubscriptionStatus",
     "Review",
     "Notification",
+    "TokenBlocklist",
 ]
