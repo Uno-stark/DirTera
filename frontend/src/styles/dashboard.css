@@ -722,3 +722,57 @@
 @media (max-width: 400px) {
   .db-stats { grid-template-columns: 1fr 1fr; gap: 8px; }
 }
+
+/* ── Standalone state line ─────────────────────────────────────────────────── */
+.db-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 0;
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+/* ── Export standalone card ────────────────────────────────────────────────── */
+.db-export-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 480px;
+}
+
+.db-export-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* ── db-btn-primary (used in standalone pages) ────────────────────────────── */
+.db-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #111827;
+  color: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, opacity 0.12s;
+}
+.db-btn-primary:hover:not(:disabled) { background: #374151; }
+.db-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Spinner ───────────────────────────────────────────────────────────────── */
+.db-spin {
+  animation: db-spin 0.7s linear infinite;
+}
+@keyframes db-spin {
+  to { transform: rotate(360deg); }
+}
