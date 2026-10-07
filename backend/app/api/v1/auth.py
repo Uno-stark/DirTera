@@ -8,7 +8,7 @@ POST /auth/refresh         → refresh access token
 GET  /auth/me              → current user profile
 """
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,6 +42,7 @@ async def google_auth_url():
 @limiter.limit(settings.RATE_LIMIT_AUTH)
 async def google_callback_redirect(
     request: Request,
+    response: Response,
     code: str,
     db: AsyncSession = Depends(get_db),
 ):
@@ -62,6 +63,7 @@ async def google_callback_redirect(
 @limiter.limit(settings.RATE_LIMIT_AUTH)
 async def google_callback_api(
     request: Request,
+    response: Response,
     payload: GoogleCallbackRequest,
     db: AsyncSession = Depends(get_db),
 ):
@@ -73,6 +75,7 @@ async def google_callback_api(
 @limiter.limit(settings.RATE_LIMIT_AUTH)
 async def refresh(
     request: Request,
+    response: Response,
     payload: RefreshRequest,
     db: AsyncSession = Depends(get_db),
 ):
