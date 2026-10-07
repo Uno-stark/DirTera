@@ -545,6 +545,70 @@
   line-height: 1.5;
 }
 
+/* ── Social links ──────────────────────────────────────────────────────────── */
+.lf2-socials {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lf2-social-row {
+  display: grid;
+  grid-template-columns: 28px 82px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Platform icon badge */
+.lf2-social-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  color: #ffffff;
+  user-select: none;
+}
+.lf2-social-icon[data-platform="linkedin"]  { background: #0a66c2; }
+.lf2-social-icon[data-platform="tiktok"]    { background: #010101; }
+.lf2-social-icon[data-platform="instagram"] { background: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); }
+.lf2-social-icon[data-platform="facebook"]  { background: #1877f2; }
+
+.lf2-social-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+}
+
+/* Override lf2-field input styles for social row inputs */
+.lf2-social-row input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  background: #f9fafb;
+  color: #111827;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.14s, background 0.14s, box-shadow 0.14s;
+}
+.lf2-social-row input:focus {
+  border-color: #111827;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.07);
+}
+.lf2-social-row input::placeholder {
+  color: #c4c9d4;
+}
+
 /* ── Responsive ────────────────────────────────────────────────────────────── */
 @media (max-width: 540px) {
   .lf2-backdrop { padding: 0; align-items: flex-end; }

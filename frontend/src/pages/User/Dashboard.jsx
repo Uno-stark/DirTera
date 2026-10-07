@@ -1,99 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Download, Loader, Plus, Star, X } from "lucide-react";
-import api from "../../api/client";
+import { ArrowLeft, Plus, Star } from "lucide-react";
 import { fetchMyListings, keys } from "../../api/queries";
 import ListingForm from "./ListingForm";
 import "../../styles/dashboard.css";
-
-// ── Export popup ──────────────────────────────────────────────────────────────
-function ExportModal({ listings, initialId, onClose }) {
-  const [selectedId, setSelectedId] = useState(
-    initialId && listings.some((l) => l.id === initialId) ? initialId : (listings[0]?.id ?? "")
-  );
-  const [exporting,   setExporting]   = useState(false);
-  const [exportError, setExportError] = useState("");
-  const [done,        setDone]        = useState(false);
-
-  const handleExport = async () => {
-    if (!selectedId) return;
-    setExporting(true);
-    setExportError("");
-    setDone(false);
-    try {
-      const res = await api.get(`/api/v1/analytics/${selectedId}/export`, {
-        responseType: "blob",
-      });
-      const url = URL.createObjectURL(new Blob([res.data]));
-      const a   = Object.assign(document.createElement("a"), {
-        href: url, download: `clicks_${selectedId}.csv`,
-      });
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      setDone(true);
-    } catch {
-      setExportError("Export failed. Please try again.");
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const handleBackdrop = (e) => { if (e.target === e.currentTarget) onClose(); };
-
-  return (
-    <div className="db-modal-backdrop" onClick={handleBackdrop} role="dialog" aria-modal="true">
-      <div className="db-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="db-modal-header">
-          <div>
-            <h2>Export click data</h2>
-            <p>Download as CSV</p>
-          </div>
-          <button className="db-modal-close" onClick={onClose} aria-label="Close">
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="db-modal-body">
-          <div className="db-modal-field">
-            <label htmlFor="export-listing">Listing</label>
-            <select
-              id="export-listing"
-              value={selectedId}
-              onChange={(e) => { setSelectedId(e.target.value); setDone(false); }}
-            >
-              {listings.map((l) => (
-                <option key={l.id} value={l.id}>{l.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {exportError && (
-            <p className="db-modal-error" role="alert">{exportError}</p>
-          )}
-          {done && (
-            <p className="db-modal-success">Download started.</p>
-          )}
-        </div>
-
-        <div className="db-modal-footer">
-          <button className="db-btn-ghost" onClick={onClose}>Cancel</button>
-          <button
-            className="db-btn-primary"
-            onClick={handleExport}
-            disabled={exporting || !selectedId}
-          >
-            {exporting
-              ? <><Loader size={13} className="db-spin" /> Exporting…</>
-              : <><Download size={13} /> Download CSV</>}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ── Star row ──────────────────────────────────────────────────────────────────
 function StarRow({ value }) {
@@ -140,7 +51,7 @@ function DescriptionText({ text }) {
   );
 }
 
-function ListingRow({ listing, index, onEdit, onExport }) {
+function ListingRow({ listing, index, onEdit }) {
   const dotColor = STATUS_DOT[listing.status] ?? "#9ca3af";
 
   return (
@@ -191,16 +102,6 @@ function ListingRow({ listing, index, onEdit, onExport }) {
       </div>
 
       <div className="db-row-actions">
-        {listing.status === "approved" && (
-          <button className="db-btn-ghost" onClick={() => onExport(listing.id)}>
-            Export
-          </button>
-        )}
-        {listing.status === "approved" && (
-          <Link to={`/subscribe/${listing.id}`} className="db-btn-ghost">
-            Subscribe
-          </Link>
-        )}
         <button className="db-btn-ghost" onClick={() => onEdit(listing.id)}>
           Edit
         </button>
@@ -226,12 +127,9 @@ function Dashboard() {
 
   const [formOpen,      setFormOpen]      = useState(false);
   const [editWebsiteId, setEditWebsiteId] = useState(null);
-  const [exportOpen,    setExportOpen]    = useState(false);
-  const [exportId,      setExportId]      = useState(null);
 
   const openCreate = () => { setEditWebsiteId(null); setFormOpen(true); };
   const openEdit   = (id) => { setEditWebsiteId(id); setFormOpen(true); };
-  const openExport = (id) => { setExportId(id); setExportOpen(true); };
   const closeForm  = () => {
     setFormOpen(false);
     setEditWebsiteId(null);
@@ -245,22 +143,13 @@ function Dashboard() {
   });
 
   const listings      = listingsData?.items ?? [];
-  const approvedList  = listings.filter((l) => l.status === "approved");
   const pendingCount  = listings.filter((l) => l.status === "pending").length;
-  const approvedCount = approvedList.length;
+  const approvedCount = listings.filter((l) => l.status === "approved").length;
   const rejectedCount = listings.filter((l) => l.status === "rejected").length;
 
   return (
     <>
       <ListingForm isOpen={formOpen} onClose={closeForm} websiteId={editWebsiteId} />
-
-      {exportOpen && (
-        <ExportModal
-          listings={approvedList}
-          initialId={exportId}
-          onClose={() => { setExportOpen(false); setExportId(null); }}
-        />
-      )}
 
       <main className="db-page">
         <header className="db-header">
@@ -319,7 +208,6 @@ function Dashboard() {
                     listing={listing}
                     index={i}
                     onEdit={openEdit}
-                    onExport={openExport}
                   />
                 ))}
               </div>

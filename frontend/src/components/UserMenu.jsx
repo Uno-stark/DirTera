@@ -29,15 +29,19 @@ function getInitials(user) {
 }
 
 function Avatar({ user, size }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const showImg = user?.avatar_url && !imgFailed;
+
   return (
     <span className={`umenu-avatar umenu-avatar--${size}`}>
-      {user?.avatar_url
+      {showImg
         ? (
           <img
             src={user.avatar_url}
             alt=""
             className="umenu-avatar-img"
-            onError={(e) => { e.currentTarget.style.display = "none"; }}
+            referrerPolicy="no-referrer"
+            onError={() => setImgFailed(true)}
           />
         )
         : <span className="umenu-avatar-initials">{getInitials(user)}</span>

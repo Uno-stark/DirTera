@@ -9,10 +9,79 @@ const MAX_IMG_MB   = 5;
 const ACCEPTED     = "image/jpeg,image/png,image/webp,image/gif";
 const TOTAL_STEPS  = 4;
 
+// ── Social platforms config ───────────────────────────────────────────────────
+const SOCIAL_PLATFORMS = [
+  {
+    key:         "linkedin",
+    label:       "LinkedIn",
+    placeholder: "company/your-business",
+    prefix:      "https://linkedin.com/",
+    icon:        "in",
+  },
+  {
+    key:         "tiktok",
+    label:       "TikTok",
+    placeholder: "@yourbusiness",
+    prefix:      "https://tiktok.com/",
+    icon:        "tt",
+  },
+  {
+    key:         "instagram",
+    label:       "Instagram",
+    placeholder: "yourbusiness",
+    prefix:      "https://instagram.com/",
+    icon:        "ig",
+  },
+  {
+    key:         "facebook",
+    label:       "Facebook",
+    placeholder: "your.page.name",
+    prefix:      "https://facebook.com/",
+    icon:        "fb",
+  },
+];
+
+// Serialize { linkedin, tiktok, instagram, facebook } → JSON string for backend
+// Strips empty values so the JSON is clean. Returns null when all empty.
+function serializeSocials(socials) {
+  const out = {};
+  for (const { key, prefix } of SOCIAL_PLATFORMS) {
+    const raw = socials[key]?.trim();
+    if (!raw) continue;
+    // If user pasted a full URL already, keep it; otherwise prepend prefix
+    out[key] = /^https?:\/\//i.test(raw) ? raw : `${prefix}${raw.replace(/^@/, "")}`;
+  }
+  return Object.keys(out).length > 0 ? JSON.stringify(out) : null;
+}
+
+// Parse JSON string from backend → { linkedin, tiktok, instagram, facebook }
+// Each value is stripped back to the handle/path for display in the input.
+function parseSocials(jsonStr) {
+  const empty = Object.fromEntries(SOCIAL_PLATFORMS.map((p) => [p.key, ""]));
+  if (!jsonStr) return empty;
+  try {
+    const obj = JSON.parse(jsonStr);
+    const result = { ...empty };
+    for (const { key, prefix } of SOCIAL_PLATFORMS) {
+      if (obj[key]) {
+        // Strip the known prefix so the user sees just the handle
+        result[key] = obj[key].startsWith(prefix)
+          ? obj[key].slice(prefix.length)
+          : obj[key];
+      }
+    }
+    return result;
+  } catch {
+    return empty;
+  }
+}
+
+const EMPTY_SOCIALS = Object.fromEntries(SOCIAL_PLATFORMS.map((p) => [p.key, ""]));
+
 const EMPTY_FORM = {
   name: "", url: "", short_description: "", full_description: "",
   category_slug: "", domain_slug: "", tags: "",
-  contact_email: "", phone_number: "", social_links: "",
+  contact_email: "", phone_number: "",
 };
 
 const STEP_META = [
@@ -86,6 +155,7 @@ function ListingForm({ isOpen, onClose, websiteId }) {
   const [animating,       setAnimating]      = useState(false);
 
   const [form,            setForm]           = useState(EMPTY_FORM);
+  const [socials,         setSocials]        = useState(EMPTY_SOCIALS);
   const [categories,      setCategories]     = useState([]);
   const [domains,         setDomains]        = useState([]);
   const [loadingCats,     setLoadingCats]    = useState(true);
@@ -114,6 +184,7 @@ function ListingForm({ isOpen, onClose, websiteId }) {
     setDone(false);
     if (!isEdit) {
       setForm(EMPTY_FORM);
+      setSocials(EMPTY_SOCIALS);
       setSavedId(null);
       setLogoUrl(null);
       setThumbnailUrl(null);
@@ -158,8 +229,8 @@ function ListingForm({ isOpen, onClose, websiteId }) {
           tags:              listing.tags              || "",
           contact_email:     listing.contact_email     || "",
           phone_number:      listing.phone_number      || "",
-          social_links:      listing.social_links      || "",
         });
+        setSocials(parseSocials(listing.social_links || ""));
         setLogoUrl(listing.logo_url || null);
         setThumbnailUrl(listing.thumbnail_url || null);
         setGalleryUrls(listing.image_urls || []);
@@ -204,6 +275,7 @@ function ListingForm({ isOpen, onClose, websiteId }) {
       const payload = Object.fromEntries(
         Object.entries(form).map(([k, v]) => [k, v.trim() || null])
       );
+      payload.social_links = serializeSocials(socials);
 
       if (step === 1) {
         // Step 1 — create or patch, then advance to Media
@@ -471,10 +543,25 @@ function ListingForm({ isOpen, onClose, websiteId }) {
             placeholder="+1 (555) 000-0000" />
         </Field>
       </div>
-      <Field label="Social links" hint='JSON — e.g. {"github":"https://github.com/you","linkedin":"https://linkedin.com/company/you"}'>
-        <textarea name="social_links" value={form.social_links}
-          onChange={handleChange} rows={3}
-          placeholder='{"github":"https://github.com/yourbusiness"}' />
+      <Field label="Social links" hint="Optional. Enter just the handle or page name — no need for the full URL.">
+        <div className="lf2-socials">
+          {SOCIAL_PLATFORMS.map(({ key, label, placeholder, icon }) => (
+            <div key={key} className="lf2-social-row">
+              <span className="lf2-social-icon" data-platform={key}>{icon}</span>
+              <span className="lf2-social-label">{label}</span>
+              <input
+                type="text"
+                value={socials[key]}
+                onChange={(e) =>
+                  setSocials((prev) => ({ ...prev, [key]: e.target.value }))
+                }
+                placeholder={placeholder}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+          ))}
+        </div>
       </Field>
     </div>,
   ];
