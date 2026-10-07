@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import AsyncGenerator
+from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -12,11 +13,17 @@ from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
-_is_sqlite    = settings.DATABASE_URL.startswith("sqlite")
+_is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+
+# Supabase transaction pooler uses port 6543.
+# PgBouncer in transaction/statement mode does not support prepared statements.
 _using_pooler = (
     settings.DATABASE_URL.startswith("postgresql")
     and ":6543/" in settings.DATABASE_URL
 )
+
+def _strip_query(url: str) -> str:
+    return url.split("?")[0]
 
 if _is_sqlite:
     engine = create_async_engine(
@@ -27,24 +34,28 @@ if _is_sqlite:
     )
 
 elif _using_pooler:
-    # PgBouncer / Supabase transaction pooler — must disable prepared statements
-    # and use NullPool so SQLAlchemy doesn't hold connections open between requests.
+
     engine = create_async_engine(
-        settings.DATABASE_URL.split("?")[0],
+        _strip_query(settings.DATABASE_URL),
         echo=settings.DEBUG,
         poolclass=NullPool,
-        connect_args={"statement_cache_size": 0},
+        connect_args={
+            "statement_cache_size": 0,
+            "prepared_statement_cache_size": 0,
+            "prepared_statement_name_func": lambda: f"__asyncpg_{uuid4()}__",
+        },
     )
+
 else:
-    # Direct Postgres — asyncpg with SSL
+    # ── Direct Postgres (no pooler) ───────────────────────────────────────────
     engine = create_async_engine(
-        settings.DATABASE_URL.split("?")[0],
+        _strip_query(settings.DATABASE_URL),
         echo=settings.DEBUG,
         pool_size=settings.DB_POOL_SIZE,
         max_overflow=settings.DB_MAX_OVERFLOW,
         pool_recycle=settings.DB_POOL_RECYCLE,
         pool_pre_ping=True,
-        connect_args={"ssl": "require", "statement_cache_size": 0},
+        connect_args={"ssl": "require"},
     )
 
 AsyncSessionLocal = async_sessionmaker(
