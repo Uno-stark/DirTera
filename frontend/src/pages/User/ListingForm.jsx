@@ -1,151 +1,153 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { Upload, X, Image as ImageIcon, Plus } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { ImagePlus, Upload, X, ChevronRight, ChevronLeft, Check } from "lucide-react";
 import api from "../../api/client";
 import "../../styles/listing-form.css";
 
-const MAX_GALLERY = 3;
-const MAX_LOGO_MB = 2;
-const MAX_IMG_MB  = 5;
-const ACCEPTED    = "image/jpeg,image/png,image/webp,image/gif";
+const MAX_GALLERY  = 3;
+const MAX_LOGO_MB  = 2;
+const MAX_IMG_MB   = 5;
+const ACCEPTED     = "image/jpeg,image/png,image/webp,image/gif";
+const TOTAL_STEPS  = 4;
 
-const emptyForm = {
-  name: "",
-  url: "",
-  short_description: "",
-  full_description: "",
-  category_slug: "",
-  domain_slug: "",
-  tags: "",
-  contact_email: "",
-  phone_number: "",
-  social_links: "",
+const EMPTY_FORM = {
+  name: "", url: "", short_description: "", full_description: "",
+  category_slug: "", domain_slug: "", tags: "",
+  contact_email: "", phone_number: "", social_links: "",
 };
 
-// ── Single image upload slot ───────────────────────────────────────────────────
-function ImageSlot({ label, previewUrl, onUpload, onDelete, uploading, hint, accept = ACCEPTED }) {
+const STEP_META = [
+  { label: "Identity",  hint: "Name & description" },
+  { label: "Category",  hint: "Type & tags"         },
+  { label: "Media",     hint: "Logo & photos"       },
+  { label: "Contact",   hint: "Email & socials"     },
+];
+
+// ── Tiny image upload slot ────────────────────────────────────────────────────
+function ImageSlot({ label, previewUrl, onUpload, onDelete, uploading, variant = "square" }) {
   const inputRef = useRef(null);
 
   const handleFile = (e) => {
     const file = e.target.files?.[0];
     if (file) onUpload(file);
-    // Reset so same file can be re-selected after removal
     e.target.value = "";
   };
 
   return (
-    <div className={`img-slot ${previewUrl ? "img-slot-filled" : ""}`}>
+    <div className={`lf2-slot lf2-slot--${variant}${previewUrl ? " lf2-slot--filled" : ""}`}>
       {previewUrl ? (
         <>
-          <img src={previewUrl} alt={label} className="img-slot-preview" />
-          <div className="img-slot-overlay">
-            <button
-              type="button"
-              className="img-slot-replace"
-              onClick={() => inputRef.current?.click()}
-              disabled={uploading}
-              title="Replace image"
-            >
-              <Upload size={14} />
-              {uploading ? "Uploading…" : "Replace"}
+          <img src={previewUrl} alt={label} className="lf2-slot-img" loading="lazy" />
+          <div className="lf2-slot-overlay">
+            <button type="button" className="lf2-slot-replace"
+              onClick={() => inputRef.current?.click()} disabled={uploading}>
+              <Upload size={11} />
+              {uploading ? "…" : "Replace"}
             </button>
-            <button
-              type="button"
-              className="img-slot-delete"
-              onClick={onDelete}
-              disabled={uploading}
-              title="Remove image"
-            >
-              <X size={14} />
+            <button type="button" className="lf2-slot-del"
+              onClick={onDelete} disabled={uploading}>
+              <X size={11} />
             </button>
           </div>
         </>
       ) : (
-        <button
-          type="button"
-          className="img-slot-empty"
-          onClick={() => inputRef.current?.click()}
-          disabled={uploading}
-        >
-          {uploading ? (
-            <span className="img-slot-uploading">Uploading…</span>
-          ) : (
-            <>
-              <ImageIcon size={20} className="img-slot-icon" />
-              <span>{label}</span>
-              {hint && <small>{hint}</small>}
-            </>
-          )}
+        <button type="button" className="lf2-slot-empty"
+          onClick={() => inputRef.current?.click()} disabled={uploading}>
+          {uploading
+            ? <span className="lf2-uploading">…</span>
+            : <ImagePlus size={14} />}
+          <span>{uploading ? "Uploading" : label}</span>
         </button>
       )}
-      <input
-        ref={inputRef}
-        type="file"
-        accept={accept}
-        onChange={handleFile}
-        className="img-slot-input"
-        tabIndex={-1}
-        aria-hidden="true"
-      />
+      <input ref={inputRef} type="file" accept={ACCEPTED}
+        onChange={handleFile} style={{ display: "none" }} tabIndex={-1} aria-hidden="true" />
     </div>
   );
 }
 
-// ── Main form ─────────────────────────────────────────────────────────────────
-function ListingForm() {
-  const navigate    = useNavigate();
-  const { websiteId } = useParams();
-  const isEditMode  = Boolean(websiteId);
+// ── Field wrapper ─────────────────────────────────────────────────────────────
+function Field({ label, required, hint, children }) {
+  return (
+    <div className="lf2-field">
+      <label className="lf2-label">
+        {label}{required && <span className="lf2-req"> *</span>}
+      </label>
+      {children}
+      {hint && <small className="lf2-hint">{hint}</small>}
+    </div>
+  );
+}
 
-  // Text form state
-  const [form,               setForm]               = useState(emptyForm);
-  const [categories,         setCategories]         = useState([]);
-  const [domains,            setDomains]            = useState([]);
-  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
-  const [isLoadingDomains,   setIsLoadingDomains]   = useState(false);
-  const [isLoadingListing,   setIsLoadingListing]   = useState(isEditMode);
-  const [isSubmitting,       setIsSubmitting]       = useState(false);
-  const [error,              setError]              = useState("");
+// ── Main component ────────────────────────────────────────────────────────────
+function ListingForm({ isOpen, onClose, websiteId }) {
+  const isEdit = Boolean(websiteId);
 
-  // Saved listing ID (set after create, or from URL in edit mode)
-  const [savedId, setSavedId] = useState(websiteId || null);
+  const [step,            setStep]           = useState(0);
+  const [slideDir,        setSlideDir]       = useState("forward"); // "forward"|"back"
+  const [animating,       setAnimating]      = useState(false);
 
-  // Image state
-  const [logoUrl,       setLogoUrl]       = useState(null);
-  const [galleryUrls,   setGalleryUrls]   = useState([]);   // up to MAX_GALLERY
-  const [logoUploading, setLogoUploading] = useState(false);
-  const [imgUploading,  setImgUploading]  = useState(false);
-  const [imgErrors,     setImgErrors]     = useState([]);   // per-operation errors
+  const [form,            setForm]           = useState(EMPTY_FORM);
+  const [categories,      setCategories]     = useState([]);
+  const [domains,         setDomains]        = useState([]);
+  const [loadingCats,     setLoadingCats]    = useState(true);
+  const [loadingDomains,  setLoadingDomains] = useState(false);
+  const [loadingListing,  setLoadingListing] = useState(false);
+  const [submitting,      setSubmitting]     = useState(false);
+  const [error,           setError]          = useState("");
 
-  // ── Load categories ────────────────────────────────────────────────────────
+  const [savedId,         setSavedId]        = useState(isEdit ? websiteId : null);
+  const [logoUrl,         setLogoUrl]        = useState(null);
+  const [thumbnailUrl,    setThumbnailUrl]   = useState(null);
+  const [galleryUrls,     setGalleryUrls]    = useState([]);
+  const [logoUploading,   setLogoUploading]  = useState(false);
+  const [thumbUploading,  setThumbUploading] = useState(false);
+  const [imgUploading,    setImgUploading]   = useState(false);
+  const [imgErrors,       setImgErrors]      = useState([]);
+  const [done,            setDone]           = useState(false);
+
+  // ── Reset when modal opens ─────────────────────────────────────────────────
   useEffect(() => {
+    if (!isOpen) return;
+    setStep(0);
+    setSlideDir("forward");
+    setError("");
+    setImgErrors([]);
+    setDone(false);
+    if (!isEdit) {
+      setForm(EMPTY_FORM);
+      setSavedId(null);
+      setLogoUrl(null);
+      setThumbnailUrl(null);
+      setGalleryUrls([]);
+    }
+  }, [isOpen, isEdit]);
+
+  // ── Load categories once ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isOpen) return;
     api.get("/api/v1/categories")
       .then(({ data }) => setCategories(data))
-      .catch(() => setError("We couldn't load categories."))
-      .finally(() => setIsLoadingCategories(false));
-  }, []);
+      .catch(() => setError("Couldn't load categories."))
+      .finally(() => setLoadingCats(false));
+  }, [isOpen]);
 
-  // ── Load domains when category changes ────────────────────────────────────
+  // ── Load domains on category change ───────────────────────────────────────
   useEffect(() => {
     if (!form.category_slug) { setDomains([]); return; }
-    setIsLoadingDomains(true);
+    setLoadingDomains(true);
     api.get("/api/v1/domains", { params: { category_slug: form.category_slug } })
       .then(({ data }) => setDomains(data))
       .catch(() => setDomains([]))
-      .finally(() => setIsLoadingDomains(false));
+      .finally(() => setLoadingDomains(false));
   }, [form.category_slug]);
 
   // ── Load existing listing in edit mode ────────────────────────────────────
   useEffect(() => {
-    if (!isEditMode) return;
-    const load = async () => {
-      try {
-        // Edit mode uses the owner endpoint so we get full data including URL
-        const { data } = await api.get(`/api/v1/websites/my`);
-        // Find the specific listing
+    if (!isEdit || !isOpen) return;
+    setLoadingListing(true);
+    api.get("/api/v1/websites/my")
+      .then(({ data }) => {
         const listing = data.items?.find((l) => l.id === websiteId);
         if (!listing) throw new Error("Not found");
-
         setForm({
           name:              listing.name              || "",
           url:               listing.url               || "",
@@ -158,20 +160,18 @@ function ListingForm() {
           phone_number:      listing.phone_number      || "",
           social_links:      listing.social_links      || "",
         });
-
         setLogoUrl(listing.logo_url || null);
+        setThumbnailUrl(listing.thumbnail_url || null);
         setGalleryUrls(listing.image_urls || []);
-      } catch (err) {
-        const detail = err.response?.data?.detail;
-        setError(Array.isArray(detail) ? detail.map((i) => i.msg).join(" ") : detail || "We couldn't load this listing.");
-      } finally {
-        setIsLoadingListing(false);
-      }
-    };
-    load();
-  }, [isEditMode, websiteId]);
+      })
+      .catch((err) => {
+        const d = err.response?.data?.detail;
+        setError(Array.isArray(d) ? d.map((i) => i.msg).join(" ") : d || "Couldn't load listing.");
+      })
+      .finally(() => setLoadingListing(false));
+  }, [isEdit, websiteId, isOpen]);
 
-  // ── Form field change ──────────────────────────────────────────────────────
+  // ── Form change ────────────────────────────────────────────────────────────
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({
@@ -181,327 +181,400 @@ function ListingForm() {
     }));
   };
 
-  // ── Text form submit ───────────────────────────────────────────────────────
+  // ── Step navigation ────────────────────────────────────────────────────────
+  const goTo = useCallback((target) => {
+    if (animating) return;
+    setSlideDir(target > step ? "forward" : "back");
+    setAnimating(true);
+    setTimeout(() => {
+      setStep(target);
+      setAnimating(false);
+    }, 220);
+  }, [animating, step]);
+
+  const next = () => goTo(step + 1);
+  const back = () => goTo(step - 1);
+
+  // ── Submit handler ────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setIsSubmitting(true);
-
+    setSubmitting(true);
     try {
       const payload = Object.fromEntries(
         Object.entries(form).map(([k, v]) => [k, v.trim() || null])
       );
 
-      let id = savedId;
-      if (isEditMode) {
-        await api.patch(`/api/v1/websites/${websiteId}`, payload);
-        id = websiteId;
-      } else {
-        const { data } = await api.post("/api/v1/websites", payload);
-        id = data.id;
-        setSavedId(id);
+      if (step === 1) {
+        // Step 1 — create or patch, then advance to Media
+        if (isEdit) {
+          await api.patch(`/api/v1/websites/${websiteId}`, payload);
+        } else {
+          const { data } = await api.post("/api/v1/websites", payload);
+          setSavedId(data.id);
+        }
+        goTo(2);
+      } else if (step === 3) {
+        // Step 3 — final save
+        const id = savedId ?? websiteId;
+        await api.patch(`/api/v1/websites/${id}`, payload);
+        setDone(true);
       }
-
-      // If no images were pending, go to dashboard
-      navigate("/dashboard");
     } catch (err) {
-      const detail = err.response?.data?.detail;
-      setError(Array.isArray(detail) ? detail.map((i) => i.msg).join(" ") : detail || (isEditMode ? "We couldn't update your listing." : "We couldn't create your listing."));
+      const d = err.response?.data?.detail;
+      setError(Array.isArray(d) ? d.map((i) => i.msg).join(" ") : d || "Couldn't save listing.");
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
   // ── Image helpers ──────────────────────────────────────────────────────────
-  const addImgError = (msg) => setImgErrors((prev) => [...prev, msg]);
+  const addImgError = (msg) => setImgErrors((p) => [...p, msg]);
 
-  const validateFileSize = (file, maxMb) => {
+  const validateSize = (file, maxMb) => {
     if (file.size > maxMb * 1024 * 1024) {
-      addImgError(`File too large. Maximum size is ${maxMb} MB.`);
+      addImgError(`File too large — max ${maxMb} MB.`);
       return false;
     }
     return true;
   };
 
-  const handleLogoUpload = async (file) => {
-    if (!savedId) {
-      addImgError("Save the listing text first, then upload images.");
-      return;
-    }
-    if (!validateFileSize(file, MAX_LOGO_MB)) return;
-
-    setLogoUploading(true);
-    setImgErrors([]);
+  const uploadLogo = async (file) => {
+    if (!savedId) { addImgError("Save the listing first."); return; }
+    if (!validateSize(file, MAX_LOGO_MB)) return;
+    setLogoUploading(true); setImgErrors([]);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const { data } = await api.post(
-        `/api/v1/websites/${savedId}/images/logo`,
-        fd,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
+      const fd = new FormData(); fd.append("file", file);
+      const { data } = await api.post(`/api/v1/websites/${savedId}/images/logo`, fd,
+        { headers: { "Content-Type": "multipart/form-data" } });
       setLogoUrl(data.url);
-    } catch (err) {
-      addImgError(err.response?.data?.detail || "Logo upload failed.");
-    } finally {
-      setLogoUploading(false);
-    }
+    } catch (err) { addImgError(err.response?.data?.detail || "Logo upload failed."); }
+    finally { setLogoUploading(false); }
   };
 
-  const handleLogoDelete = async () => {
+  const deleteLogo = async () => {
     if (!savedId) return;
     setLogoUploading(true);
-    try {
-      await api.delete(`/api/v1/websites/${savedId}/images/logo`);
-      setLogoUrl(null);
-    } catch {
-      addImgError("Failed to remove logo.");
-    } finally {
-      setLogoUploading(false);
-    }
+    try { await api.delete(`/api/v1/websites/${savedId}/images/logo`); setLogoUrl(null); }
+    catch { addImgError("Failed to remove logo."); }
+    finally { setLogoUploading(false); }
   };
 
-  const handleGalleryUpload = async (file) => {
-    if (!savedId) {
-      addImgError("Save the listing text first, then upload images.");
-      return;
-    }
-    if (galleryUrls.length >= MAX_GALLERY) {
-      addImgError(`Maximum ${MAX_GALLERY} gallery images allowed.`);
-      return;
-    }
-    if (!validateFileSize(file, MAX_IMG_MB)) return;
-
-    setImgUploading(true);
-    setImgErrors([]);
+  const uploadThumbnail = async (file) => {
+    if (!savedId) { addImgError("Save the listing first."); return; }
+    if (!validateSize(file, MAX_IMG_MB)) return;
+    setThumbUploading(true); setImgErrors([]);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const { data } = await api.post(
-        `/api/v1/websites/${savedId}/images`,
-        fd,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
+      const fd = new FormData(); fd.append("file", file);
+      const { data } = await api.post(`/api/v1/websites/${savedId}/images/thumbnail`, fd,
+        { headers: { "Content-Type": "multipart/form-data" } });
+      setThumbnailUrl(data.url);
+    } catch (err) { addImgError(err.response?.data?.detail || "Thumbnail upload failed."); }
+    finally { setThumbUploading(false); }
+  };
+
+  const deleteThumbnail = async () => {
+    if (!savedId) return;
+    setThumbUploading(true);
+    try { await api.delete(`/api/v1/websites/${savedId}/images/thumbnail`); setThumbnailUrl(null); }
+    catch { addImgError("Failed to remove thumbnail."); }
+    finally { setThumbUploading(false); }
+  };
+
+  const uploadGallery = async (file) => {
+    if (!savedId) { addImgError("Save the listing first."); return; }
+    if (galleryUrls.length >= MAX_GALLERY) { addImgError(`Max ${MAX_GALLERY} images.`); return; }
+    if (!validateSize(file, MAX_IMG_MB)) return;
+    setImgUploading(true); setImgErrors([]);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const { data } = await api.post(`/api/v1/websites/${savedId}/images`, fd,
+        { headers: { "Content-Type": "multipart/form-data" } });
       setGalleryUrls(data.image_urls || []);
-    } catch (err) {
-      addImgError(err.response?.data?.detail || "Image upload failed.");
-    } finally {
-      setImgUploading(false);
-    }
+    } catch (err) { addImgError(err.response?.data?.detail || "Image upload failed."); }
+    finally { setImgUploading(false); }
   };
 
-  const handleGalleryDelete = async (index) => {
+  const deleteGallery = async (index) => {
     if (!savedId) return;
     setImgUploading(true);
     try {
       await api.delete(`/api/v1/websites/${savedId}/images/${index}`);
-      setGalleryUrls((prev) => prev.filter((_, i) => i !== index));
-    } catch {
-      addImgError("Failed to remove image.");
-    } finally {
-      setImgUploading(false);
-    }
+      setGalleryUrls((p) => p.filter((_, i) => i !== index));
+    } catch { addImgError("Failed to remove image."); }
+    finally { setImgUploading(false); }
   };
 
-  // ── Loading screen ─────────────────────────────────────────────────────────
-  if (isEditMode && isLoadingListing) {
+  const imagesUnlocked = Boolean(savedId);
+
+  // ── Backdrop click close ───────────────────────────────────────────────────
+  const handleBackdrop = (e) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
+  if (!isOpen) return null;
+
+  // ── Done screen ────────────────────────────────────────────────────────────
+  if (done) {
     return (
-      <main className="listing-form-page">
-        <div className="listing-form-container">
-          <p className="listing-form-loading">Loading your listing…</p>
+      <div className="lf2-backdrop" onClick={handleBackdrop} role="dialog" aria-modal="true">
+        <div className="lf2-modal">
+          <div className="lf2-done">
+            <div className="lf2-done-icon"><Check size={28} /></div>
+            <h3>{isEdit ? "Listing updated" : "Listing submitted"}</h3>
+            <p>{isEdit
+              ? "Your changes have been saved."
+              : "Your listing is under review and will go live once approved."
+            }</p>
+            <button className="lf2-btn-primary" onClick={onClose}>Close</button>
+          </div>
         </div>
-      </main>
+      </div>
     );
   }
 
-  const canUploadImages = Boolean(savedId);
+  if (loadingListing) {
+    return (
+      <div className="lf2-backdrop" role="dialog" aria-modal="true">
+        <div className="lf2-modal lf2-modal--loading">
+          <p>Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step content ───────────────────────────────────────────────────────────
+  const steps = [
+    /* 0 — Identity */
+    <div className="lf2-step-content" key="identity">
+      <div className="lf2-row">
+        <Field label="Business name" required>
+          <input name="name" value={form.name} onChange={handleChange}
+            placeholder="e.g. Habesha Coffee" required autoFocus />
+        </Field>
+        <Field label="Website URL" required>
+          <input name="url" type="url" value={form.url} onChange={handleChange}
+            placeholder="https://example.com" required />
+        </Field>
+      </div>
+      <Field label="Short description" required hint="Up to 160 chars — shown in directory cards.">
+        <input name="short_description" value={form.short_description}
+          onChange={handleChange} maxLength={160} required
+          placeholder="What does your business do, in one sentence?" />
+      </Field>
+      <Field label="Full description" hint="Up to 2,000 chars — detail page overview.">
+        <textarea name="full_description" value={form.full_description}
+          onChange={handleChange} rows={3}
+          placeholder="Tell people what you offer, who it's for, and what makes it useful." />
+      </Field>
+    </div>,
+
+    /* 1 — Category */
+    <div className="lf2-step-content" key="category">
+      <div className="lf2-row">
+        <Field label="Category" required hint="Start with the broadest fit, e.g. Technology.">
+          <select name="category_slug" value={form.category_slug}
+            onChange={handleChange} disabled={loadingCats}>
+            <option value="">{loadingCats ? "Loading…" : "Select a category"}</option>
+            {categories.map((c) => (
+              <option key={c.slug} value={c.slug}>{c.name}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Domain" required hint="Then choose a subcategory, e.g. Open Source.">
+          <select name="domain_slug" value={form.domain_slug}
+            onChange={handleChange}
+            disabled={!form.category_slug || loadingDomains}>
+            <option value="">
+              {!form.category_slug ? "Choose a category first"
+                : loadingDomains ? "Loading…" : "Select a domain"}
+            </option>
+            {domains.map((d) => (
+              <option key={d.slug} value={d.slug}>{d.name}</option>
+            ))}
+          </select>
+        </Field>
+      </div>
+      <Field label="Tags" hint="Add up to 5 relevant tags, separated by commas.">
+        <input name="tags" value={form.tags} onChange={handleChange}
+          placeholder="e.g. Community, Developer Tools, Free Resources" />
+      </Field>
+    </div>,
+
+    /* 2 — Media */
+    <div className="lf2-step-content" key="media">
+      {!imagesUnlocked && (
+        <p className="lf2-media-notice">
+          Complete step 1 &amp; 2 and save to unlock image uploads.
+        </p>
+      )}
+      {imgErrors.length > 0 && (
+        <div className="lf2-error" role="alert">
+          {imgErrors.map((e, i) => <span key={i}>{e}</span>)}
+        </div>
+      )}
+      <div className="lf2-media-row">
+        {/* Logo */}
+        <div className="lf2-media-item">
+          <span className="lf2-media-label">Logo <small>400×400 · PNG/JPG · 2 MB</small></span>
+          <ImageSlot
+            label="Logo"
+            previewUrl={logoUrl}
+            onUpload={imagesUnlocked ? uploadLogo : () => addImgError("Save listing first.")}
+            onDelete={deleteLogo}
+            uploading={logoUploading}
+            variant="logo"
+          />
+        </div>
+        {/* Thumbnail */}
+        <div className="lf2-media-item lf2-media-item--wide">
+          <span className="lf2-media-label">Cover photo <small>1600X600 · PNG/JPG · 5 MB</small></span>
+          <ImageSlot
+            label="Cover"
+            previewUrl={thumbnailUrl}
+            onUpload={imagesUnlocked ? uploadThumbnail : () => addImgError("Save listing first.")}
+            onDelete={deleteThumbnail}
+            uploading={thumbUploading}
+            variant="wide"
+          />
+        </div>
+      </div>
+      {/* Gallery */}
+      <div className="lf2-gallery-label">
+        <span className="lf2-media-label">Gallery photos <small>Up to {MAX_GALLERY}</small></span>
+        <div className="lf2-gallery-grid">
+          {galleryUrls.map((url, i) => (
+            <ImageSlot key={i} label={`Photo ${i + 1}`} previewUrl={url}
+              onUpload={uploadGallery} onDelete={() => deleteGallery(i)}
+              uploading={imgUploading} variant="square" />
+          ))}
+          {galleryUrls.length < MAX_GALLERY && (
+            <ImageSlot label="Add" previewUrl={null}
+              onUpload={imagesUnlocked ? uploadGallery : () => addImgError("Save listing first.")}
+              onDelete={() => {}} uploading={imgUploading} variant="square" />
+          )}
+        </div>
+      </div>
+    </div>,
+
+    /* 3 — Contact */
+    <div className="lf2-step-content" key="contact">
+      <div className="lf2-row">
+        <Field label="Email" hint="Optional.">
+          <input name="contact_email" type="email"
+            value={form.contact_email} onChange={handleChange}
+            placeholder="hello@yourwebsite.com" />
+        </Field>
+        <Field label="Phone" hint="Optional.">
+          <input name="phone_number" type="tel"
+            value={form.phone_number} onChange={handleChange}
+            placeholder="+1 (555) 000-0000" />
+        </Field>
+      </div>
+      <Field label="Social links" hint='JSON — e.g. {"github":"https://github.com/you","linkedin":"https://linkedin.com/company/you"}'>
+        <textarea name="social_links" value={form.social_links}
+          onChange={handleChange} rows={3}
+          placeholder='{"github":"https://github.com/yourbusiness"}' />
+      </Field>
+    </div>,
+  ];
 
   return (
-    <main className="listing-form-page">
-      <div className="listing-form-container">
+    <div className="lf2-backdrop" onClick={handleBackdrop} role="dialog" aria-modal="true"
+      aria-label={isEdit ? "Edit listing" : "Add listing"}>
+      <div className="lf2-modal" onClick={(e) => e.stopPropagation()}>
 
-        <div className="listing-form-header">
-          <div>
-            <Link to="/dashboard" className="listing-form-back-link">← Back to dashboard</Link>
-            <h1>{isEditMode ? "Edit listing" : "Add a listing"}</h1>
-            <p>
-              {isEditMode
-                ? "Update your website listing information."
-                : "Submit your website to DirTera. Your listing will be reviewed before it goes live."}
-            </p>
+        {/* ── Header ──────────────────────────────────────────────── */}
+        <div className="lf2-header">
+          <div className="lf2-header-titles">
+            <h2>{isEdit ? "Edit listing" : "Add a listing"}</h2>
+            <p>{STEP_META[step].hint}</p>
+          </div>
+          <button className="lf2-close" onClick={onClose} aria-label="Close">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* ── Step indicator ──────────────────────────────────────── */}
+        <div className="lf2-steps">
+          {STEP_META.map((s, i) => (
+            <button key={i} type="button"
+              className={`lf2-step-dot${i === step ? " lf2-step-dot--active" : ""}${i < step ? " lf2-step-dot--done" : ""}`}
+              onClick={() => i < step && goTo(i)}
+              aria-label={s.label}
+              title={s.label}
+              disabled={i > step}>
+              {i < step ? <Check size={10} /> : <span>{i + 1}</span>}
+            </button>
+          ))}
+          <div className="lf2-step-track">
+            <div className="lf2-step-fill" style={{ width: `${(step / (TOTAL_STEPS - 1)) * 100}%` }} />
           </div>
         </div>
 
-        {error && <div className="listing-form-error" role="alert">{error}</div>}
+        {/* ── Step label ──────────────────────────────────────────── */}
+        <div className="lf2-step-label">
+          <span className="lf2-step-num">{step + 1} / {TOTAL_STEPS}</span>
+          <span className="lf2-step-name">{STEP_META[step].label}</span>
+        </div>
 
-        <form className="listing-form" onSubmit={handleSubmit}>
+        {/* ── Error ───────────────────────────────────────────────── */}
+        {error && <div className="lf2-error" role="alert">{error}</div>}
 
-          {/* ── Basic info ─────────────────────────────────────────── */}
-          <section className="listing-form-section">
-            <div className="listing-form-section-heading">
-              <h2>Basic information</h2>
-              <p>Tell visitors what your website is about.</p>
+        {/* ── Sliding content ─────────────────────────────────────── */}
+        <form onSubmit={handleSubmit} noValidate>
+          <div className={`lf2-slide-wrap${animating ? ` lf2-slide-wrap--${slideDir}` : ""}`}>
+            {steps[step]}
+          </div>
+
+          {/* ── Footer nav ────────────────────────────────────────── */}
+          <div className="lf2-footer">
+            {step > 0 ? (
+              <button type="button" className="lf2-btn-back" onClick={back}>
+                <ChevronLeft size={15} /> Back
+              </button>
+            ) : (
+              <button type="button" className="lf2-btn-back" onClick={onClose}>
+                Cancel
+              </button>
+            )}
+
+            <div className="lf2-footer-right">
+              {/* On step 2 (Media), Next is non-saving */}
+              {step === 2 && (
+                <button type="button" className="lf2-btn-primary" onClick={next}>
+                  Next <ChevronRight size={15} />
+                </button>
+              )}
+
+              {/* Step 0: Next (no save yet) */}
+              {step === 0 && (
+                <button type="button" className="lf2-btn-primary" onClick={next}
+                  disabled={!form.name.trim() || !form.url.trim() || !form.short_description.trim()}>
+                  Next <ChevronRight size={15} />
+                </button>
+              )}
+
+              {/* Step 1: Save & continue (creates listing) */}
+              {step === 1 && (
+                <button type="submit" className="lf2-btn-primary" disabled={submitting}>
+                  {submitting ? "Saving…" : isEdit ? "Save & continue" : "Save & continue"}
+                  {!submitting && <ChevronRight size={15} />}
+                </button>
+              )}
+
+              {/* Step 3: Final submit */}
+              {step === 3 && (
+                <button type="submit" className="lf2-btn-primary" disabled={submitting}>
+                  {submitting ? "Saving…" : isEdit ? "Save changes" : "Submit listing"}
+                </button>
+              )}
             </div>
-
-            <div className="listing-form-grid">
-              <label className="listing-form-field">
-                <span>Website name *</span>
-                <input type="text" name="name" value={form.name} onChange={handleChange} required />
-              </label>
-
-              <label className="listing-form-field">
-                <span>Website URL *</span>
-                <input type="url" name="url" value={form.url} onChange={handleChange} placeholder="https://example.com" required />
-              </label>
-
-              <label className="listing-form-field listing-form-field-full">
-                <span>Short description *</span>
-                <input type="text" name="short_description" value={form.short_description} onChange={handleChange} maxLength={500} required />
-              </label>
-
-              <label className="listing-form-field listing-form-field-full">
-                <span>Full description</span>
-                <textarea name="full_description" value={form.full_description} onChange={handleChange} rows={5} />
-              </label>
-            </div>
-          </section>
-
-          {/* ── Category ───────────────────────────────────────────── */}
-          <section className="listing-form-section">
-            <div className="listing-form-section-heading">
-              <h2>Category</h2>
-              <p>Choose the category and domain that best match your website.</p>
-            </div>
-
-            <div className="listing-form-grid">
-              <label className="listing-form-field">
-                <span>Category</span>
-                <select name="category_slug" value={form.category_slug} onChange={handleChange} disabled={isLoadingCategories}>
-                  <option value="">{isLoadingCategories ? "Loading…" : "Select a category"}</option>
-                  {categories.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
-                </select>
-              </label>
-
-              <label className="listing-form-field">
-                <span>Domain</span>
-                <select name="domain_slug" value={form.domain_slug} onChange={handleChange} disabled={!form.category_slug || isLoadingDomains}>
-                  <option value="">{!form.category_slug ? "Select a category first" : isLoadingDomains ? "Loading…" : "Select a domain"}</option>
-                  {domains.map((d) => <option key={d.slug} value={d.slug}>{d.name}</option>)}
-                </select>
-              </label>
-
-              <label className="listing-form-field listing-form-field-full">
-                <span>Tags</span>
-                <input type="text" name="tags" value={form.tags} onChange={handleChange} placeholder="coffee, restaurant, food" />
-                <small>Separate keywords with commas.</small>
-              </label>
-            </div>
-          </section>
-
-          {/* ── Contact ────────────────────────────────────────────── */}
-          <section className="listing-form-section">
-            <div className="listing-form-section-heading">
-              <h2>Contact information</h2>
-              <p>Optional — visitors can use this to reach you.</p>
-            </div>
-
-            <div className="listing-form-grid">
-              <label className="listing-form-field">
-                <span>Email</span>
-                <input type="email" name="contact_email" value={form.contact_email} onChange={handleChange} />
-              </label>
-
-              <label className="listing-form-field">
-                <span>Phone number</span>
-                <input type="tel" name="phone_number" value={form.phone_number} onChange={handleChange} />
-              </label>
-
-              <label className="listing-form-field listing-form-field-full">
-                <span>Social links</span>
-                <textarea name="social_links" value={form.social_links} onChange={handleChange} rows={2} placeholder='{"facebook":"https://facebook.com/yourpage"}' />
-              </label>
-            </div>
-          </section>
-
-          {/* ── Submit text form ───────────────────────────────────── */}
-          <div className="listing-form-actions listing-form-actions-top">
-            <Link to="/dashboard" className="listing-form-secondary-button">Cancel</Link>
-            <button type="submit" className="listing-form-primary-button" disabled={isSubmitting}>
-              {isSubmitting ? (isEditMode ? "Saving…" : "Submitting…") : (isEditMode ? "Save changes" : "Submit listing")}
-            </button>
           </div>
         </form>
 
-        {/* ── Images — separate from the text form ───────────────── */}
-        <section className="listing-form-section listing-form-images-section">
-          <div className="listing-form-section-heading">
-            <h2>Images</h2>
-            <p>
-              Upload a logo and up to {MAX_GALLERY} gallery images.
-              Files are compressed to WebP automatically.
-              {!canUploadImages && (
-                <strong className="img-note"> Save the listing first to enable uploads.</strong>
-              )}
-            </p>
-          </div>
-
-          {imgErrors.length > 0 && (
-            <div className="listing-form-error" role="alert">
-              {imgErrors.map((e, i) => <p key={i} style={{ margin: "2px 0" }}>{e}</p>)}
-            </div>
-          )}
-
-          <div className="img-upload-grid">
-            {/* Logo slot */}
-            <div className="img-upload-group">
-              <p className="img-upload-label">Logo <span className="img-upload-hint">Max {MAX_LOGO_MB} MB</span></p>
-              <ImageSlot
-                label="Upload logo"
-                previewUrl={logoUrl}
-                onUpload={handleLogoUpload}
-                onDelete={handleLogoDelete}
-                uploading={logoUploading}
-                hint={`JPEG, PNG, WEBP — max ${MAX_LOGO_MB} MB`}
-              />
-            </div>
-
-            {/* Gallery slots */}
-            <div className="img-upload-group img-upload-group-gallery">
-              <p className="img-upload-label">
-                Gallery images
-                <span className="img-upload-hint"> {galleryUrls.length}/{MAX_GALLERY} — Max {MAX_IMG_MB} MB each</span>
-              </p>
-              <div className="img-gallery-slots">
-                {/* Existing images */}
-                {galleryUrls.map((url, i) => (
-                  <ImageSlot
-                    key={i}
-                    label={`Image ${i + 1}`}
-                    previewUrl={url}
-                    onUpload={handleGalleryUpload}
-                    onDelete={() => handleGalleryDelete(i)}
-                    uploading={imgUploading}
-                  />
-                ))}
-
-                {/* Add slot — shown if under the limit */}
-                {galleryUrls.length < MAX_GALLERY && (
-                  <ImageSlot
-                    label="Add image"
-                    previewUrl={null}
-                    onUpload={canUploadImages ? handleGalleryUpload : () => addImgError("Save the listing first.")}
-                    onDelete={() => {}}
-                    uploading={imgUploading}
-                    hint={`JPEG, PNG, WEBP — max ${MAX_IMG_MB} MB`}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-
       </div>
-    </main>
+    </div>
   );
 }
 

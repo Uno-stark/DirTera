@@ -1,386 +1,346 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { ArrowLeft, Check, Loader, X, AlertCircle, Lock } from "lucide-react";
 import api from "../../api/client";
+import {
+  fetchPlans,
+  fetchSubscriptions,
+  fetchPaymentHealth,
+  fetchWebsiteDetail,
+  keys,
+} from "../../api/queries";
 import PaymentHealth from "../../components/PaymentHealth";
 import "../../styles/payment.css";
 
-// ── Steps ─────────────────────────────────────────────────────────────────────
-// SELECT_PLAN → PAY → SUCCESS
+function parseFeatures(description) {
+  if (!description) return [];
+  return description.split(",").map((s) => s.trim()).filter(Boolean);
+}
 
+// ── Plan card ─────────────────────────────────────────────────────────────────
+function PlanCard({ plan, selected, onClick, locked, current }) {
+  const features = parseFeatures(plan.description);
+  return (
+    <button
+      type="button"
+      disabled={locked}
+      className={[
+        "sp-card",
+        selected          ? "sp-card--selected" : "",
+        plan.is_premiered ? "sp-card--featured"  : "",
+        locked            ? "sp-card--locked"    : "",
+        current           ? "sp-card--current"   : "",
+      ].filter(Boolean).join(" ")}
+      onClick={locked ? undefined : onClick}
+      aria-disabled={locked}
+    >
+      {plan.is_premiered && !locked && (
+        <span className="sp-featured-tag">Premiered</span>
+      )}
+      {locked && (
+        <span className="sp-locked-tag">
+          <Lock size={9} strokeWidth={2.5} />
+          {current ? "Current plan" : "Not available"}
+        </span>
+      )}
+
+      <div className="sp-card-top">
+        <span className="sp-card-label">{plan.label}</span>
+        <span className="sp-card-price">
+          {Number(plan.amount).toLocaleString()}
+          <small> {plan.currency}</small>
+        </span>
+      </div>
+      <p className="sp-card-duration">{plan.duration_days} days</p>
+      {features.length > 0 && (
+        <ul className="sp-features">
+          {features.map((f, i) => (
+            <li key={i}>
+              <Check size={12} strokeWidth={2.5} className="sp-check" />
+              {f}
+            </li>
+          ))}
+        </ul>
+      )}
+    </button>
+  );
+}
+
+// ── Verification popup ────────────────────────────────────────────────────────
+function VerifyModal({ plan, onClose, onSubmit, paymentOnline }) {
+  const [receiptUrl, setReceiptUrl] = useState("");
+  const [error,      setError]      = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!receiptUrl.trim()) { setError("Please paste your receipt URL."); return; }
+    setError("");
+    onSubmit(receiptUrl.trim());
+  };
+
+  return (
+    <div className="sp-backdrop"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      role="dialog" aria-modal="true" aria-label="Payment verification">
+      <div className="sp-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="sp-modal-header">
+          <div>
+            <h2>Verify payment</h2>
+            <p>{plan.label} · {Number(plan.amount).toLocaleString()} {plan.currency}</p>
+          </div>
+          <button className="sp-modal-close" onClick={onClose} aria-label="Close">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="sp-modal-health">
+          <PaymentHealth />
+          <span>
+            {paymentOnline === null
+              ? "Checking payment service…"
+              : paymentOnline
+                ? "Payment service online"
+                : "Payment service may be unavailable"}
+          </span>
+        </div>
+
+        <p className="sp-modal-hint">
+          Send exactly{" "}
+          <strong>{Number(plan.amount).toLocaleString()} {plan.currency}</strong>{" "}
+          to the DirTera merchant account via Telebirr or CBE, then paste the
+          receipt URL below.
+        </p>
+
+        <form onSubmit={handleSubmit} className="sp-modal-form">
+          <label htmlFor="sp-receipt">Receipt URL</label>
+          <input
+            id="sp-receipt"
+            type="url"
+            value={receiptUrl}
+            onChange={(e) => setReceiptUrl(e.target.value)}
+            placeholder="https://transactioninfo.ethiotelecom.et/receipt/…"
+            required
+            autoFocus
+          />
+          {error && <p className="sp-modal-error">{error}</p>}
+          <div className="sp-modal-actions">
+            <button type="button" className="sp-btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="sp-btn-primary" disabled={!receiptUrl.trim()}>
+              Verify payment
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Verifying overlay ─────────────────────────────────────────────────────────
+function VerifyingOverlay() {
+  return (
+    <div className="sp-verifying-overlay" role="status" aria-live="polite">
+      <Loader size={28} className="sp-spinner" />
+      <p>Verifying payment…</p>
+    </div>
+  );
+}
+
+// ── Result popup ──────────────────────────────────────────────────────────────
+function ResultModal({ isSuccess, error, onClose, onRetry }) {
+  return (
+    <div
+      className="sp-backdrop"
+      onClick={(e) => { if (e.target === e.currentTarget && isSuccess) onClose(); }}
+      role="dialog" aria-modal="true"
+    >
+      <div className="sp-modal sp-modal--result" onClick={(e) => e.stopPropagation()}>
+        {isSuccess ? (
+          <>
+            <div className="sp-result-icon sp-result-icon--ok">
+              <Check size={24} strokeWidth={2.5} />
+            </div>
+            <h2>Payment submitted</h2>
+            <p className="sp-result-msg">
+              Your payment is being reviewed. Your listing will be updated once verified.
+            </p>
+            <div className="sp-modal-actions">
+              <Link to="/dashboard" className="sp-btn-primary">Back to dashboard</Link>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="sp-result-icon sp-result-icon--err">
+              <AlertCircle size={24} strokeWidth={2} />
+            </div>
+            <h2>Verification failed</h2>
+            <p className="sp-result-msg">{error}</p>
+            <div className="sp-modal-actions">
+              <button type="button" className="sp-btn-ghost" onClick={onClose}>Dismiss</button>
+              <button type="button" className="sp-btn-primary" onClick={onRetry}>Try again</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 function Subscribe() {
   const { websiteId } = useParams();
-  const navigate = useNavigate();
 
-  const [step, setStep] = useState("SELECT_PLAN");
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [showVerify,   setShowVerify]   = useState(false);
+  const [isVerifying,  setIsVerifying]  = useState(false);
+  const [verifyResult, setVerifyResult] = useState(null);
+  const [verifyError,  setVerifyError]  = useState("");
+  const [showResult,   setShowResult]   = useState(false);
 
-  // Plans loaded from DB via GET /payments/plans
-  const [plans, setPlans] = useState([]);
-  const [isLoadingPlans, setIsLoadingPlans] = useState(true);
-  const [plansError, setPlansError] = useState("");
+  // ── Data queries (all run in parallel, all cached) ────────────────────────
+  const { data: website } = useQuery({
+    queryKey: keys.websiteDetail(websiteId),
+    queryFn:  () => fetchWebsiteDetail(websiteId),
+    staleTime: 5 * 60_000,
+  });
 
-  const [selectedPlan, setSelectedPlan] = useState(null); // plan object from DB
-  const [planInfo, setPlanInfo] = useState(null);          // cost preview from /subscribe/info
-  const [isLoadingInfo, setIsLoadingInfo] = useState(false);
-  const [infoError, setInfoError] = useState("");
+  const {
+    data:      plans = [],
+    isLoading: isLoadingPlans,
+    isError:   isPlansError,
+  } = useQuery({
+    queryKey: keys.plans(),
+    queryFn:  fetchPlans,
+    staleTime: 5 * 60_000,
+  });
 
-  const [receiptUrl, setReceiptUrl] = useState("");
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [verifyError, setVerifyError] = useState("");
+  const { data: allSubs = [] } = useQuery({
+    queryKey: keys.subscriptions(),
+    queryFn:  fetchSubscriptions,
+    staleTime: 60_000,
+  });
 
-  const [result, setResult] = useState(null);
-  const [website, setWebsite] = useState(null);
+  // Payment health — low priority, failure is non-blocking
+  const { data: healthData } = useQuery({
+    queryKey: keys.paymentHealth(),
+    queryFn:  fetchPaymentHealth,
+    staleTime: 2 * 60_000,
+    retry: false,
+  });
 
-  // Load website name + available plans in parallel
-  useEffect(() => {
-    const load = async () => {
-      const [websiteRes, plansRes] = await Promise.allSettled([
-        api.get(`/api/v1/websites/${websiteId}`),
-        api.get("/api/v1/payments/plans"),
-      ]);
+  const paymentOnline = healthData
+    ? (healthData.ok && healthData.components?.every((c) => c.status === "operational"))
+    : null;
 
-      if (websiteRes.status === "fulfilled") {
-        setWebsite(websiteRes.value.data);
-      }
+  // Active or pending sub for this specific website
+  const activeSub = allSubs.find(
+    (s) => s.website_id === websiteId &&
+           (s.status === "active" || s.status === "pending")
+  ) ?? null;
 
-      if (plansRes.status === "fulfilled") {
-        setPlans(plansRes.value.data);
-      } else {
-        setPlansError("We couldn't load the available plans. Please try again.");
-      }
+  // ── Plan ordering + lock logic ────────────────────────────────────────────
+  const planOrder = [...plans].sort((a, b) => Number(a.amount) - Number(b.amount));
 
-      setIsLoadingPlans(false);
-    };
+  const activeIdx = activeSub
+    ? planOrder.findIndex((p) => p.slug === activeSub.plan)
+    : -1;
 
-    load();
-  }, [websiteId]);
+  const isPlanLocked   = (plan) => {
+    if (!activeSub) return false;
+    return planOrder.findIndex((p) => p.slug === plan.slug) <= activeIdx;
+  };
+  const isCurrentPlan  = (plan) => activeSub?.plan === plan.slug;
 
-  // When a plan card is clicked, fetch cost preview
-  useEffect(() => {
-    if (!selectedPlan) return;
+  const handleSelectPlan = (plan) => {
+    if (isPlanLocked(plan)) return;
+    setSelectedPlan(plan);
+    setShowVerify(true);
+  };
 
-    const loadInfo = async () => {
-      setIsLoadingInfo(true);
-      setInfoError("");
-
-      try {
-        const { data } = await api.get("/api/v1/payments/subscribe/info", {
-          params: { website_id: websiteId, plan: selectedPlan.slug },
-        });
-        setPlanInfo(data);
-      } catch (err) {
-        setInfoError(
-          err.response?.data?.detail ||
-            "We couldn't load the subscription details."
-        );
-        setPlanInfo(null);
-      } finally {
-        setIsLoadingInfo(false);
-      }
-    };
-
-    loadInfo();
-  }, [selectedPlan, websiteId]);
-
-  const handleVerify = async (e) => {
-    e.preventDefault();
-
-    if (!receiptUrl.trim()) {
-      setVerifyError("Please paste your receipt URL.");
-      return;
-    }
-
-    setVerifyError("");
+  const handleVerifySubmit = async (receiptUrl) => {
+    setShowVerify(false);
     setIsVerifying(true);
-
+    setVerifyResult(null);
+    setVerifyError("");
     try {
       const { data } = await api.post("/api/v1/payments/verify", {
-        website_id: websiteId,
-        plan: selectedPlan.slug,
-        receipt_url: receiptUrl.trim(),
+        website_id:  websiteId,
+        plan:        selectedPlan.slug,
+        receipt_url: receiptUrl,
       });
-
-      setResult(data);
-      setStep("SUCCESS");
+      setVerifyResult(data);
     } catch (err) {
-      const detail = err.response?.data?.detail;
-      const status = err.response?.status;
-
-      if (status === 409) {
-        setVerifyError(
-          "This receipt has already been used. Please use a different receipt."
-        );
-      } else if (status === 503) {
-        setVerifyError(
-          "The payment verification service is currently unavailable. Please try again shortly."
-        );
-      } else {
-        setVerifyError(
-          typeof detail === "string"
-            ? detail
-            : "We couldn't verify your payment. Please check the receipt URL and try again."
-        );
-      }
+      const httpStatus = err.response?.status;
+      const detail     = err.response?.data?.detail;
+      if (httpStatus === 409)      setVerifyError("This receipt has already been used.");
+      else if (httpStatus === 503) setVerifyError("Payment service unavailable. Try again shortly.");
+      else                         setVerifyError(typeof detail === "string" ? detail : "Couldn't verify payment. Check the receipt URL.");
     } finally {
       setIsVerifying(false);
+      setShowResult(true);
     }
   };
 
-  const formatDate = (iso) =>
-    iso
-      ? new Date(iso).toLocaleDateString("en-GB", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })
-      : "—";
+  const handleRetry       = () => { setShowResult(false); setVerifyError(""); setShowVerify(true); };
+  const handleResultClose = () => { setShowResult(false); setVerifyResult(null); setVerifyError(""); setSelectedPlan(null); };
 
   return (
-    <main className="payment-page">
-      <div className="payment-container">
-        {/* ── Header ─────────────────────────────────────────────────── */}
-        <div className="payment-header">
-          <Link to="/dashboard" className="payment-back-link">
-            ← Back to dashboard
+    <main className="sp-page">
+      {isVerifying && <VerifyingOverlay />}
+
+      {showVerify && selectedPlan && (
+        <VerifyModal
+          plan={selectedPlan}
+          onClose={() => setShowVerify(false)}
+          onSubmit={handleVerifySubmit}
+          paymentOnline={paymentOnline}
+        />
+      )}
+
+      {showResult && (
+        <ResultModal
+          isSuccess={Boolean(verifyResult)}
+          error={verifyError}
+          onClose={handleResultClose}
+          onRetry={handleRetry}
+        />
+      )}
+
+      <div className="sp-container">
+        <div className="sp-header">
+          <Link to="/dashboard" className="sp-back">
+            <ArrowLeft size={14} strokeWidth={2.5} />
+            Back to dashboard
           </Link>
-
-          <div className="payment-header-row">
-            <div>
-              <h1>Subscribe</h1>
-              {website && (
-                <p className="payment-subtitle">
-                  Listing: <strong>{website.name}</strong>
-                </p>
-              )}
-            </div>
-
-            <PaymentHealth />
-          </div>
+          <h1>Subscribe</h1>
+          {website && <p className="sp-subtitle">{website.name}</p>}
         </div>
 
-        {/* ── Step 1: Select plan ─────────────────────────────────────── */}
-        {step === "SELECT_PLAN" && (
-          <div className="payment-step">
-            <h2>Choose a plan</h2>
-            <p className="payment-step-description">
-              Your listing must be approved before subscribing. Subscriptions
-              keep your listing active and visible in the directory.
-            </p>
-
-            {isLoadingPlans && <p className="payment-loading">Loading plans...</p>}
-
-            {plansError && (
-              <p className="payment-error" role="alert">{plansError}</p>
-            )}
-
-            {!isLoadingPlans && !plansError && plans.length === 0 && (
-              <p className="payment-loading">No plans are currently available.</p>
-            )}
-
-            {!isLoadingPlans && plans.length > 0 && (
-              <>
-                <div className="plan-grid">
-                  {plans.map((plan) => (
-                    <button
-                      key={plan.id}
-                      type="button"
-                      className={`plan-card ${
-                        selectedPlan?.id === plan.id ? "selected" : ""
-                      } ${plan.is_premiered ? "featured" : ""}`}
-                      onClick={() => setSelectedPlan(plan)}
-                    >
-                      {plan.is_premiered && (
-                        <span className="plan-featured-badge">Premiered</span>
-                      )}
-
-                      <h3>{plan.label}</h3>
-                      <p className="plan-duration">{plan.duration_days} days</p>
-
-                      {plan.description && (
-                        <p className="plan-description">{plan.description}</p>
-                      )}
-
-                      <p className="plan-price">
-                        {Number(plan.amount).toLocaleString()} {plan.currency}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-
-                {infoError && (
-                  <p className="payment-error" role="alert">{infoError}</p>
-                )}
-
-                {isLoadingInfo && (
-                  <p className="payment-loading">Loading details...</p>
-                )}
-
-                {planInfo && !isLoadingInfo && (
-                  <div className="plan-summary">
-                    <div className="plan-summary-row">
-                      <span>Plan</span>
-                      <strong>{planInfo.label || planInfo.plan}</strong>
-                    </div>
-                    <div className="plan-summary-row">
-                      <span>Duration</span>
-                      <strong>{planInfo.duration_days} days</strong>
-                    </div>
-                    {planInfo.is_premiered && (
-                      <div className="plan-summary-row">
-                        <span>Effect</span>
-                        <strong>Premieres your listing ✓</strong>
-                      </div>
-                    )}
-                    <div className="plan-summary-row plan-summary-total">
-                      <span>Total</span>
-                      <strong>
-                        {Number(planInfo.amount).toLocaleString()}{" "}
-                        {planInfo.currency}
-                      </strong>
-                    </div>
-                  </div>
-                )}
-
-                <div className="payment-actions">
-                  <Link to="/dashboard" className="payment-secondary-button">
-                    Cancel
-                  </Link>
-
-                  <button
-                    type="button"
-                    className="payment-primary-button"
-                    onClick={() => setStep("PAY")}
-                    disabled={!selectedPlan || !planInfo || isLoadingInfo}
-                  >
-                    Continue to payment
-                  </button>
-                </div>
-              </>
-            )}
+        {activeSub && (
+          <div className="sp-active-notice">
+            Active plan: <strong>
+              {activeSub.plan.charAt(0).toUpperCase() + activeSub.plan.slice(1)}
+            </strong>{" "}— select a higher plan to upgrade.
           </div>
         )}
 
-        {/* ── Step 2: Pay + verify ────────────────────────────────────── */}
-        {step === "PAY" && planInfo && (
-          <div className="payment-step">
-            <h2>Complete your payment</h2>
-
-            <div className="payment-instructions">
-              <h3>How to pay</h3>
-              <ol>
-                <li>Open your Telebirr, CBE, or other supported payment app.</li>
-                <li>
-                  Send exactly{" "}
-                  <strong>
-                    {Number(planInfo.amount).toLocaleString()} {planInfo.currency}
-                  </strong>{" "}
-                  to the DirTera merchant account.
-                </li>
-                <li>
-                  Once payment is confirmed, copy the full receipt URL from
-                  your payment app.
-                </li>
-                <li>Paste the receipt URL below and click Verify.</li>
-              </ol>
-
-              <div className="payment-amount-box">
-                <span>Amount to pay</span>
-                <strong>
-                  {Number(planInfo.amount).toLocaleString()} {planInfo.currency}
-                </strong>
-              </div>
-            </div>
-
-            <form className="payment-verify-form" onSubmit={handleVerify}>
-              <label htmlFor="receipt-url">Receipt URL *</label>
-              <input
-                id="receipt-url"
-                type="url"
-                value={receiptUrl}
-                onChange={(e) => setReceiptUrl(e.target.value)}
-                placeholder="https://transactioninfo.ethiotelecom.et/receipt/..."
-                required
-                disabled={isVerifying}
+        {isLoadingPlans && <div className="sp-state">Loading plans…</div>}
+        {isPlansError   && <div className="sp-state sp-state--error">Couldn't load plans. Please try again.</div>}
+        {!isLoadingPlans && !isPlansError && plans.length === 0 && (
+          <div className="sp-state">No plans available.</div>
+        )}
+        {!isLoadingPlans && !isPlansError && plans.length > 0 && (
+          <div className="sp-plan-grid">
+            {planOrder.map((plan) => (
+              <PlanCard
+                key={plan.id}
+                plan={plan}
+                selected={selectedPlan?.id === plan.id}
+                locked={isPlanLocked(plan)}
+                current={isCurrentPlan(plan)}
+                onClick={() => handleSelectPlan(plan)}
               />
-              <small>
-                Paste the full receipt URL from your payment app (Telebirr,
-                CBE, etc.)
-              </small>
-
-              {verifyError && (
-                <p className="payment-error" role="alert">
-                  {verifyError}
-                </p>
-              )}
-
-              <div className="payment-actions">
-                <button
-                  type="button"
-                  className="payment-secondary-button"
-                  onClick={() => setStep("SELECT_PLAN")}
-                  disabled={isVerifying}
-                >
-                  Back
-                </button>
-
-                <button
-                  type="submit"
-                  className="payment-primary-button"
-                  disabled={isVerifying || !receiptUrl.trim()}
-                >
-                  {isVerifying ? "Verifying..." : "Verify payment"}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* ── Step 3: Success ─────────────────────────────────────────── */}
-        {step === "SUCCESS" && result && (
-          <div className="payment-step payment-success">
-            <div className="payment-success-icon">✓</div>
-
-            <h2>Payment verified!</h2>
-            <p>{result.message}</p>
-
-            <div className="payment-success-details">
-              <div className="plan-summary-row">
-                <span>Plan</span>
-                <strong>
-                  {selectedPlan?.label || result.subscription.plan}
-                </strong>
-              </div>
-              <div className="plan-summary-row">
-                <span>Status</span>
-                <strong>{result.subscription.status}</strong>
-              </div>
-              <div className="plan-summary-row">
-                <span>Starts</span>
-                <strong>{formatDate(result.subscription.starts_at)}</strong>
-              </div>
-              <div className="plan-summary-row">
-                <span>Expires</span>
-                <strong>{formatDate(result.subscription.expires_at)}</strong>
-              </div>
-              <div className="plan-summary-row">
-                <span>Provider</span>
-                <strong>{result.provider}</strong>
-              </div>
-              {result.subscription.receipt_no && (
-                <div className="plan-summary-row">
-                  <span>Receipt no.</span>
-                  <strong>{result.subscription.receipt_no}</strong>
-                </div>
-              )}
-            </div>
-
-            <div className="payment-actions">
-              <Link to="/subscriptions" className="payment-secondary-button">
-                View subscriptions
-              </Link>
-              <Link to="/dashboard" className="payment-primary-button">
-                Back to dashboard
-              </Link>
-            </div>
+            ))}
           </div>
         )}
       </div>

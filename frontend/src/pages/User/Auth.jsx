@@ -1,16 +1,10 @@
-/**
- * Auth — Google-only sign in / sign up modal.
- *
- * One button. No email. No password.
- * Google handles identity; the backend creates the account on first login.
- */
-
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
-import { X, BarChart2 } from "lucide-react";
+import { X } from "lucide-react";
 
 import { startGoogleLogin } from "../../api/googleAuth";
+import logoSrc from "../../assets/logo.js";
 import "../../styles/auth-modal.css";
 
 function AuthModal({ isModal, onClose }) {
@@ -53,12 +47,9 @@ function AuthModal({ isModal, onClose }) {
         {/* Brand */}
         <div className="auth-header auth-header-centered">
           <div className="auth-brand auth-brand-centered">
-            <BarChart2
-              size={28}
-              className="auth-brand-icon"
-              strokeWidth={2}
-              aria-hidden="true"
-            />
+            {logoSrc && (
+              <img src={logoSrc} alt="" className="auth-brand-logo" aria-hidden="true" />
+            )}
             <span>DirTera</span>
           </div>
           <h2>Welcome to DirTera</h2>
@@ -93,21 +84,11 @@ function AuthModal({ isModal, onClose }) {
         {/* Legal note */}
         <p className="auth-legal">
           By continuing you agree to our{" "}
-          <a
-            href="/api/v1/legal/terms"
-            target="_blank"
-            rel="noreferrer"
-            className="auth-legal-link"
-          >
+          <a href="/legal/terms" target="_blank" rel="noreferrer" className="auth-legal-link">
             Terms of Service
           </a>{" "}
           and{" "}
-          <a
-            href="/api/v1/legal/privacy"
-            target="_blank"
-            rel="noreferrer"
-            className="auth-legal-link"
-          >
+          <a href="/legal/privacy" target="_blank" rel="noreferrer" className="auth-legal-link">
             Privacy Policy
           </a>
           .
