@@ -80,6 +80,8 @@ class Settings(BaseSettings):
     RATE_LIMIT_CLICK: str = "60/minute"
     RATE_LIMIT_REVIEW: str = "10/minute"
     REDIS_URL: Optional[str] = None
+    CACHE_BACKEND: str = "memory"
+    CACHE_TTL_SECONDS: int = 60
 
     # Email
     SMTP_HOST: Optional[str] = None
