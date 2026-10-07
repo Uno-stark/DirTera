@@ -6,6 +6,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.inmemory import InMemoryBackend
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -17,6 +19,24 @@ from app.core.limiter import limiter
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.CACHE_BACKEND == "redis":
+        # Import lazily so the `redis` package is not required when using
+        # the in-memory backend.
+        from fastapi_cache.backends.redis import RedisBackend
+        from redis import asyncio as aioredis
+
+        if not settings.REDIS_URL:
+            raise RuntimeError(
+                
+            )
+        redis_client = aioredis.from_url(
+            settings.REDIS_URL, encoding="utf-8", decode_responses=False
+        )
+        FastAPICache.init(RedisBackend(redis_client), prefix="dirterra-cache")
+    else:
+
+        FastAPICache.init(InMemoryBackend(), prefix="dirterra-cache")
+
     yield
 
 
@@ -37,7 +57,6 @@ def create_app() -> FastAPI:
     # ── Rate limiter ──────────────────────────────────────────────────────────
     if settings.RATE_LIMIT_ENABLED:
         app.state.limiter = limiter
-
         app.add_middleware(SlowAPIMiddleware)
 
         @app.exception_handler(RateLimitExceeded)
@@ -52,11 +71,15 @@ def create_app() -> FastAPI:
                     )
                 },
                 headers={
-                    "Retry-After": str(exc.limit.reset_at) if hasattr(exc.limit, "reset_at") else "60",
+                    "Retry-After": (
+                        str(exc.limit.reset_at)
+                        if hasattr(exc.limit, "reset_at")
+                        else "60"
+                    ),
                 },
             )
 
-    # ── CORS 
+    # ── CORS ──────────────────────────────────────────────────────────────────
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins_list,
@@ -68,7 +91,7 @@ def create_app() -> FastAPI:
     if not settings.DEBUG:
         app.add_middleware(
             TrustedHostMiddleware,
-            allowed_hosts=["*"], 
+            allowed_hosts=["*"],
         )
 
     # ── Routers ───────────────────────────────────────────────────────────────
