@@ -1,0 +1,26 @@
+[
+  {
+    "image": "catering.webp",
+    "label": "Restaurants & Cafés",
+    "heading": "From street food\nto fine dining.",
+    "sub": "Explore eateries loved by locals — reviewed, verified, and worth your time."
+  },
+  {
+    "image": "server.webp",
+    "label": "Services & Trades",
+    "heading": "The people who\nkeep things running.",
+    "sub": "Find trusted professionals for every job, big or small."
+  },
+  {
+    "image": "gym.webp",
+    "label": "Shops & Boutiques",
+    "heading": "Shop local,\nshop distinct.",
+    "sub": "Independent stores with character — curated by the community."
+  },
+  {
+    "image": "cars.webp",
+    "label": "Health & Wellness",
+    "heading": "Places that care\nabout how you feel.",
+    "sub": "Gyms, spas, clinics, and more — all in one place."
+  }
+]
