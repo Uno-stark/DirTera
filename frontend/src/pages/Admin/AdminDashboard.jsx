@@ -206,7 +206,7 @@ function AdminDashboard() {
                         <button
                           className="admin-button-outline"
                           style={{ padding: "4px 12px", fontSize: 13 }}
-                          onClick={() => navigate("/admin/requests")}
+                          onClick={() => navigate(`/admin/requests?id=${req.id}`)}
                         >
                           Review
                         </button>
@@ -220,8 +220,7 @@ function AdminDashboard() {
 
           <div style={{ marginTop: 16 }}>
             <button
-              className="admin-link"
-              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 14 }}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 14, color: "#2563eb" }}
               onClick={() => navigate("/admin/requests")}
             >
               View All Requests →
