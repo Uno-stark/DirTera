@@ -14,9 +14,9 @@ const Auth           = lazy(() => import("./pages/User/Auth"));
 const GoogleCallback = lazy(() => import("./pages/User/GoogleCallback"));
 
 // ── User pages ────────────────────────────────────────────────────────────────
-const Account       = lazy(() => import("./pages/User/Account"));
-const Dashboard     = lazy(() => import("./pages/User/Dashboard"));
-const Subscribe     = lazy(() => import("./pages/User/Subscribe"));
+const Account    = lazy(() => import("./pages/User/Account"));
+const Dashboard  = lazy(() => import("./pages/User/Dashboard"));
+const Subscribe  = lazy(() => import("./pages/User/Subscribe"));
 
 // ── Admin pages ───────────────────────────────────────────────────────────────
 const AdminLayout        = lazy(() => import("./pages/Admin/AdminLayout"));
@@ -53,9 +53,9 @@ function AuthModalLayer() {
         <Route element={<ProtectedRoute />}>
 
           {/* User pages */}
-          <Route path="/account"                              element={<Account />} />
-          <Route path="/dashboard"                            element={<Dashboard />} />
-          <Route path="/subscribe/:websiteId"                 element={<Subscribe />} />
+          <Route path="/account"              element={<Account />} />
+          <Route path="/dashboard"            element={<Dashboard />} />
+          <Route path="/subscribe/:websiteId" element={<Subscribe />} />
 
           {/* Admin */}
           <Route path="/admin" element={<AdminLayout />}>
