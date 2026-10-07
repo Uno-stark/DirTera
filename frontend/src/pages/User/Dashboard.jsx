@@ -3,10 +3,8 @@ import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Download, Loader, Plus, Star, X } from "lucide-react";
 import api from "../../api/client";
-import { fetchMyListings, fetchPlans, fetchSubscriptions, keys } from "../../api/queries";
-import PaymentHealth from "../../components/PaymentHealth";
+import { fetchMyListings, keys } from "../../api/queries";
 import ListingForm from "./ListingForm";
-import { fmtDate, isExpiringSoon } from "../../utils/format";
 import "../../styles/dashboard.css";
 
 // ── Export popup ──────────────────────────────────────────────────────────────
@@ -125,7 +123,6 @@ const STATUS_DOT = {
 function DescriptionText({ text }) {
   const [expanded, setExpanded] = useState(false);
   if (!text) return null;
-  // Approximate: if longer than ~100 chars it likely wraps to 2+ lines
   const isLong = text.length > 100;
   return (
     <p className="db-row-desc">
@@ -152,7 +149,6 @@ function ListingRow({ listing, index, onEdit, onExport }) {
         {String(index + 1).padStart(2, "0")}
       </span>
 
-      {/* Logo with status dot in top-right corner */}
       <div className="db-row-logo-wrap">
         <div className="db-row-logo">
           {listing.logo_url ? (
@@ -224,131 +220,6 @@ function ListingSkeleton() {
   );
 }
 
-// ── Subscriptions section ─────────────────────────────────────────────────────
-function SubscriptionsSection() {
-  const [open, setOpen] = useState(false);
-
-  const { data: subs = [], isLoading, isError } = useQuery({
-    queryKey: keys.subscriptions(),
-    queryFn:  fetchSubscriptions,
-    staleTime: 60_000,
-  });
-
-  // Fetch all available plans so we can show "upgrade" button
-  const { data: plans = [] } = useQuery({
-    queryKey: keys.plans(),
-    queryFn:  fetchPlans,
-    staleTime: 5 * 60_000,
-  });
-
-  const activeCount = subs.filter((s) => s.status === "active").length;
-  const expiringAny = subs.some((s) => isExpiringSoon(s.expires_at));
-
-  // Build plan order by amount ascending so we know which is "next"
-  const planOrder = [...plans].sort((a, b) => Number(a.amount) - Number(b.amount));
-
-  const nextPlan = (currentPlanSlug) => {
-    const idx = planOrder.findIndex((p) => p.slug === currentPlanSlug);
-    return idx >= 0 && idx < planOrder.length - 1 ? planOrder[idx + 1] : null;
-  };
-
-  return (
-    <section className="db-subs-section">
-      <button
-        type="button"
-        className="db-subs-toggle"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-      >
-        <span className="db-subs-toggle-label">
-          Subscriptions
-          {!isLoading && subs.length > 0 && (
-            <span className="db-subs-meta">
-              {activeCount} active
-              {expiringAny && <span className="db-subs-warn"> · expiring soon</span>}
-            </span>
-          )}
-        </span>
-        <span className="db-subs-toggle-icon">{open ? "▲" : "▼"}</span>
-      </button>
-
-      {open && (
-        <div className="db-subs-body">
-          {/* Payment service health */}
-          <div className="db-subs-health">
-            <PaymentHealth />
-            <span className="db-subs-health-label">Payment service</span>
-          </div>
-
-          {isLoading  && <p className="db-subs-state">Loading…</p>}
-          {!isLoading && isError && (
-            <p className="db-subs-state db-subs-error">Couldn't load subscriptions.</p>
-          )}
-          {!isLoading && !isError && subs.length === 0 && (
-            <p className="db-subs-state">No subscriptions yet.</p>
-          )}
-
-          {!isLoading && !isError && subs.length > 0 && (
-            <div className="db-subs-cards">
-              {subs.map((sub) => {
-                const isActive   = sub.status === "active";
-                const isExpired  = sub.status === "expired";
-                const expiring   = isExpiringSoon(sub.expires_at);
-                const upgrade    = nextPlan(sub.plan);
-                const canUpgrade = isActive && Boolean(upgrade);
-                const canRenew   = isExpired || expiring;
-
-                return (
-                  <div
-                    key={sub.id}
-                    className={`db-sub-card${expiring ? " db-sub-card--warn" : ""}${isExpired ? " db-sub-card--expired" : ""}`}
-                  >
-                    <div className="db-sub-card-main">
-                      <div className="db-sub-card-info">
-                        <span className="db-sub-card-name">{sub.website_name ?? "Listing"}</span>
-                        <span className="db-sub-card-plan">
-                          {sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1)} plan
-                        </span>
-                      </div>
-                      <div className="db-sub-card-meta">
-                        <span className="db-sub-card-dates">
-                          {fmtDate(sub.starts_at)} → {fmtDate(sub.expires_at)}
-                        </span>
-                        {expiring && (
-                          <span className="db-sub-card-expiring">Expiring soon</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="db-sub-card-actions">
-                      {canRenew && (
-                        <Link
-                          to={`/subscribe/${sub.website_id}`}
-                          className="db-sub-card-btn"
-                        >
-                          {isExpired ? "Resubscribe" : "Renew"}
-                        </Link>
-                      )}
-                      {canUpgrade && (
-                        <Link
-                          to={`/subscribe/${sub.website_id}`}
-                          className="db-sub-card-btn db-sub-card-btn--upgrade"
-                        >
-                          Upgrade to {upgrade.label}
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 function Dashboard() {
   const queryClient = useQueryClient();
@@ -358,10 +229,10 @@ function Dashboard() {
   const [exportOpen,    setExportOpen]    = useState(false);
   const [exportId,      setExportId]      = useState(null);
 
-  const openCreate  = () => { setEditWebsiteId(null); setFormOpen(true); };
-  const openEdit    = (id) => { setEditWebsiteId(id); setFormOpen(true); };
-  const openExport  = (id) => { setExportId(id); setExportOpen(true); };
-  const closeForm   = () => {
+  const openCreate = () => { setEditWebsiteId(null); setFormOpen(true); };
+  const openEdit   = (id) => { setEditWebsiteId(id); setFormOpen(true); };
+  const openExport = (id) => { setExportId(id); setExportOpen(true); };
+  const closeForm  = () => {
     setFormOpen(false);
     setEditWebsiteId(null);
     queryClient.invalidateQueries({ queryKey: keys.myListings() });
@@ -406,15 +277,15 @@ function Dashboard() {
           <div className="db-stats">
             <div className="db-stat"><span>Total</span><strong>{listings.length}</strong></div>
             <div className="db-stat">
-              <span><span className="db-stat-dot" style={{background:"#22c55e"}} />Approved</span>
+              <span><span className="db-stat-dot" style={{ background: "#22c55e" }} />Approved</span>
               <strong>{approvedCount}</strong>
             </div>
             <div className="db-stat">
-              <span><span className="db-stat-dot" style={{background:"#f59e0b"}} />Pending</span>
+              <span><span className="db-stat-dot" style={{ background: "#f59e0b" }} />Pending</span>
               <strong>{pendingCount}</strong>
             </div>
             <div className="db-stat">
-              <span><span className="db-stat-dot" style={{background:"#ef4444"}} />Rejected</span>
+              <span><span className="db-stat-dot" style={{ background: "#ef4444" }} />Rejected</span>
               <strong>{rejectedCount}</strong>
             </div>
           </div>
@@ -454,8 +325,6 @@ function Dashboard() {
               </div>
             )}
           </section>
-
-          <SubscriptionsSection />
         </div>
       </main>
     </>
