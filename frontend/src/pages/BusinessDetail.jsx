@@ -15,7 +15,7 @@ import { useAuth } from "../context/AuthContext";
 import { fmtDate } from "../utils/format";
 import "../styles/business-detail.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_URL || "";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hero gallery — stable interval via activeRef (no stale-closure re-creation)
