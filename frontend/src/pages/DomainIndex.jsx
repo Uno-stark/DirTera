@@ -10,7 +10,7 @@ import { useTaxonomy } from "../context/TaxonomyContext";
 import "../styles/domain.css";
 
 const PAGE_SIZE = 10;
-const API_BASE  = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE  = import.meta.env.VITE_API_URL || "";
 
 const FILTERS = [
   { key: "all",       label: "All"       },
