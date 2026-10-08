@@ -189,8 +189,10 @@ function ListingForm({ isOpen, onClose, websiteId }) {
       setLogoUrl(null);
       setThumbnailUrl(null);
       setGalleryUrls([]);
+    } else {
+      setSavedId(websiteId);
     }
-  }, [isOpen, isEdit]);
+  }, [isOpen, isEdit, websiteId]);
 
   // ── Load categories once ───────────────────────────────────────────────────
   useEffect(() => {
@@ -219,6 +221,7 @@ function ListingForm({ isOpen, onClose, websiteId }) {
       .then(({ data }) => {
         const listing = data.items?.find((l) => l.id === websiteId);
         if (!listing) throw new Error("Not found");
+        setSavedId(websiteId);
         setForm({
           name:              listing.name              || "",
           url:               listing.url               || "",
@@ -232,7 +235,7 @@ function ListingForm({ isOpen, onClose, websiteId }) {
         });
         setSocials(parseSocials(listing.social_links || ""));
         setLogoUrl(listing.logo_url || null);
-        setThumbnailUrl(listing.thumbnail_url || null);
+        setThumbnailUrl(listing.thumbnail_url || listing.image_urls?.[0] || null);
         setGalleryUrls(listing.image_urls || []);
       })
       .catch((err) => {
@@ -281,6 +284,7 @@ function ListingForm({ isOpen, onClose, websiteId }) {
         // Step 1 — create or patch, then advance to Media
         if (isEdit) {
           await api.patch(`/api/v1/websites/${websiteId}`, payload);
+          setSavedId(websiteId);
         } else {
           const { data } = await api.post("/api/v1/websites", payload);
           setSavedId(data.id);
@@ -312,72 +316,107 @@ function ListingForm({ isOpen, onClose, websiteId }) {
   };
 
   const uploadLogo = async (file) => {
-    if (!savedId) { addImgError("Save the listing first."); return; }
+    const targetId = websiteId || savedId;
+    if (!targetId) { addImgError("Save the listing first."); return; }
     if (!validateSize(file, MAX_LOGO_MB)) return;
     setLogoUploading(true); setImgErrors([]);
     try {
       const fd = new FormData(); fd.append("file", file);
-      const { data } = await api.post(`/api/v1/websites/${savedId}/images/logo`, fd,
+      const { data } = await api.post(`/api/v1/websites/${targetId}/images/logo`, fd,
         { headers: { "Content-Type": "multipart/form-data" } });
-      setLogoUrl(data.url);
-    } catch (err) { addImgError(err.response?.data?.detail || "Logo upload failed."); }
-    finally { setLogoUploading(false); }
+      setLogoUrl(data.url || data.logo_url);
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      addImgError(Array.isArray(detail) ? detail.map((i) => i.msg).join(" ") : detail || "Logo upload failed.");
+    } finally {
+      setLogoUploading(false);
+    }
   };
 
   const deleteLogo = async () => {
-    if (!savedId) return;
+    const targetId = websiteId || savedId;
+    if (!targetId) return;
     setLogoUploading(true);
-    try { await api.delete(`/api/v1/websites/${savedId}/images/logo`); setLogoUrl(null); }
-    catch { addImgError("Failed to remove logo."); }
-    finally { setLogoUploading(false); }
+    try {
+      await api.delete(`/api/v1/websites/${targetId}/images/logo`);
+      setLogoUrl(null);
+    } catch {
+      addImgError("Failed to remove logo.");
+    } finally {
+      setLogoUploading(false);
+    }
   };
 
   const uploadThumbnail = async (file) => {
-    if (!savedId) { addImgError("Save the listing first."); return; }
+    const targetId = websiteId || savedId;
+    if (!targetId) { addImgError("Save the listing first."); return; }
     if (!validateSize(file, MAX_IMG_MB)) return;
     setThumbUploading(true); setImgErrors([]);
     try {
       const fd = new FormData(); fd.append("file", file);
-      const { data } = await api.post(`/api/v1/websites/${savedId}/images/thumbnail`, fd,
+      const { data } = await api.post(`/api/v1/websites/${targetId}/images/thumbnail`, fd,
         { headers: { "Content-Type": "multipart/form-data" } });
-      setThumbnailUrl(data.url);
-    } catch (err) { addImgError(err.response?.data?.detail || "Thumbnail upload failed."); }
-    finally { setThumbUploading(false); }
+      setThumbnailUrl(data.url || data.thumbnail_url);
+      if (data.image_urls) setGalleryUrls(data.image_urls);
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      addImgError(Array.isArray(detail) ? detail.map((i) => i.msg).join(" ") : detail || "Thumbnail upload failed.");
+    } finally {
+      setThumbUploading(false);
+    }
   };
 
   const deleteThumbnail = async () => {
-    if (!savedId) return;
+    const targetId = websiteId || savedId;
+    if (!targetId) return;
     setThumbUploading(true);
-    try { await api.delete(`/api/v1/websites/${savedId}/images/thumbnail`); setThumbnailUrl(null); }
-    catch { addImgError("Failed to remove thumbnail."); }
-    finally { setThumbUploading(false); }
+    try {
+      await api.delete(`/api/v1/websites/${targetId}/images/thumbnail`);
+      setThumbnailUrl(null);
+    } catch {
+      addImgError("Failed to remove thumbnail.");
+    } finally {
+      setThumbUploading(false);
+    }
   };
 
   const uploadGallery = async (file) => {
-    if (!savedId) { addImgError("Save the listing first."); return; }
+    const targetId = websiteId || savedId;
+    if (!targetId) { addImgError("Save the listing first."); return; }
     if (galleryUrls.length >= MAX_GALLERY) { addImgError(`Max ${MAX_GALLERY} images.`); return; }
     if (!validateSize(file, MAX_IMG_MB)) return;
     setImgUploading(true); setImgErrors([]);
     try {
       const fd = new FormData(); fd.append("file", file);
-      const { data } = await api.post(`/api/v1/websites/${savedId}/images`, fd,
+      const { data } = await api.post(`/api/v1/websites/${targetId}/images`, fd,
         { headers: { "Content-Type": "multipart/form-data" } });
       setGalleryUrls(data.image_urls || []);
-    } catch (err) { addImgError(err.response?.data?.detail || "Image upload failed."); }
-    finally { setImgUploading(false); }
+      if (!thumbnailUrl && data.image_urls?.[0]) {
+        setThumbnailUrl(data.image_urls[0]);
+      }
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      addImgError(Array.isArray(detail) ? detail.map((i) => i.msg).join(" ") : detail || "Image upload failed.");
+    } finally {
+      setImgUploading(false);
+    }
   };
 
   const deleteGallery = async (index) => {
-    if (!savedId) return;
+    const targetId = websiteId || savedId;
+    if (!targetId) return;
     setImgUploading(true);
     try {
-      await api.delete(`/api/v1/websites/${savedId}/images/${index}`);
+      await api.delete(`/api/v1/websites/${targetId}/images/${index}`);
       setGalleryUrls((p) => p.filter((_, i) => i !== index));
-    } catch { addImgError("Failed to remove image."); }
-    finally { setImgUploading(false); }
+    } catch {
+      addImgError("Failed to remove image.");
+    } finally {
+      setImgUploading(false);
+    }
   };
 
-  const imagesUnlocked = Boolean(savedId);
+  const imagesUnlocked = Boolean(websiteId || savedId);
 
   // ── Backdrop click close ───────────────────────────────────────────────────
   const handleBackdrop = (e) => {
@@ -587,10 +626,10 @@ function ListingForm({ isOpen, onClose, websiteId }) {
           {STEP_META.map((s, i) => (
             <button key={i} type="button"
               className={`lf2-step-dot${i === step ? " lf2-step-dot--active" : ""}${i < step ? " lf2-step-dot--done" : ""}`}
-              onClick={() => i < step && goTo(i)}
+              onClick={() => (isEdit || i < step) && goTo(i)}
               aria-label={s.label}
               title={s.label}
-              disabled={i > step}>
+              disabled={!isEdit && i > step}>
               {i < step ? <Check size={10} /> : <span>{i + 1}</span>}
             </button>
           ))}
