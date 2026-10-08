@@ -322,8 +322,7 @@ function ListingForm({ isOpen, onClose, websiteId }) {
     setLogoUploading(true); setImgErrors([]);
     try {
       const fd = new FormData(); fd.append("file", file);
-      const { data } = await api.post(`/api/v1/websites/${targetId}/images/logo`, fd,
-        { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post(`/api/v1/websites/${targetId}/images/logo`, fd, { timeout: 60_000 });
       setLogoUrl(data.url || data.logo_url);
     } catch (err) {
       const detail = err.response?.data?.detail;
@@ -354,8 +353,7 @@ function ListingForm({ isOpen, onClose, websiteId }) {
     setThumbUploading(true); setImgErrors([]);
     try {
       const fd = new FormData(); fd.append("file", file);
-      const { data } = await api.post(`/api/v1/websites/${targetId}/images/thumbnail`, fd,
-        { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post(`/api/v1/websites/${targetId}/images/thumbnail`, fd, { timeout: 60_000 });
       setThumbnailUrl(data.url || data.thumbnail_url);
       if (data.image_urls) setGalleryUrls(data.image_urls);
     } catch (err) {
@@ -388,8 +386,7 @@ function ListingForm({ isOpen, onClose, websiteId }) {
     setImgUploading(true); setImgErrors([]);
     try {
       const fd = new FormData(); fd.append("file", file);
-      const { data } = await api.post(`/api/v1/websites/${targetId}/images`, fd,
-        { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post(`/api/v1/websites/${targetId}/images`, fd, { timeout: 60_000 });
       setGalleryUrls(data.image_urls || []);
       if (!thumbnailUrl && data.image_urls?.[0]) {
         setThumbnailUrl(data.image_urls[0]);
