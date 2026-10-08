@@ -59,7 +59,18 @@ class Settings(BaseSettings):
     # Supabase Storage
     SUPABASE_URL: str = ""
     SUPABASE_SECRET_KEY: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
+    SUPABASE_KEY: Optional[str] = None
     SUPABASE_STORAGE_BUCKET: str = "website-images"
+    SUPABASE_BUCKET: Optional[str] = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.SUPABASE_SECRET_KEY:
+            self.SUPABASE_SECRET_KEY = (
+                self.SUPABASE_SERVICE_ROLE_KEY or self.SUPABASE_KEY or ""
+            )
+        if self.SUPABASE_BUCKET and self.SUPABASE_STORAGE_BUCKET == "website-images":
+            self.SUPABASE_STORAGE_BUCKET = self.SUPABASE_BUCKET
 
     # Image limits
     MAX_LOGO_SIZE_MB: float = 2.0
