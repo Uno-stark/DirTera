@@ -547,22 +547,7 @@ function ListingForm({ isOpen, onClose, websiteId }) {
           />
         </div>
       </div>
-      {/* Gallery */}
-      <div className="lf2-gallery-label">
-        <span className="lf2-media-label">Gallery photos <small>Up to {MAX_GALLERY}</small></span>
-        <div className="lf2-gallery-grid">
-          {galleryUrls.map((url, i) => (
-            <ImageSlot key={i} label={`Photo ${i + 1}`} previewUrl={url}
-              onUpload={uploadGallery} onDelete={() => deleteGallery(i)}
-              uploading={imgUploading} variant="square" />
-          ))}
-          {galleryUrls.length < MAX_GALLERY && (
-            <ImageSlot label="Add" previewUrl={null}
-              onUpload={imagesUnlocked ? uploadGallery : () => addImgError("Save listing first.")}
-              onDelete={() => {}} uploading={imgUploading} variant="square" />
-          )}
-        </div>
-      </div>
+
     </div>,
 
     /* 3 — Contact */
