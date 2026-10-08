@@ -8,7 +8,8 @@ import asyncio
 import io
 import logging
 import mimetypes
-from typing import Literal
+import threading
+from typing import Literal, Optional
 
 from fastapi import HTTPException, UploadFile, status
 from PIL import Image
@@ -23,16 +24,31 @@ _ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 # Image slot type
 ImageSlot = Literal["logo", "thumbnail", "img_0", "img_1", "img_2"]
 
+# ── Singleton Supabase client ─────────────────────────────────────────────────
+# One client per process — httpx.Client is thread-safe for concurrent reads.
+# Lazy-init protected by a threading.Lock so we never create two at once.
+_client_lock = threading.Lock()
+_supabase_client = None
+
 
 def _get_supabase_client():
-    """Lazy-init Supabase client — avoids import error when keys are not set."""
-    if not settings.SUPABASE_URL or not settings.SUPABASE_SECRET_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Image storage is not configured. Set SUPABASE_URL and SUPABASE_SECRET_KEY.",
-        )
-    from supabase import create_client
-    return create_client(settings.SUPABASE_URL, settings.SUPABASE_SECRET_KEY)
+    """Return the process-level Supabase client, creating it on first call."""
+    global _supabase_client
+    if _supabase_client is not None:
+        return _supabase_client
+    with _client_lock:
+        if _supabase_client is not None:
+            return _supabase_client
+        if not settings.SUPABASE_URL or not settings.SUPABASE_SECRET_KEY:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Image storage is not configured. Set SUPABASE_URL and SUPABASE_SECRET_KEY.",
+            )
+        from supabase import create_client
+        _supabase_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SECRET_KEY)
+        logger.info("Supabase client initialised (url=%s, bucket=%s)",
+                    settings.SUPABASE_URL, settings.SUPABASE_STORAGE_BUCKET)
+    return _supabase_client
 
 
 def _validate_mime(file: UploadFile) -> None:
@@ -57,10 +73,7 @@ def _compress(data: bytes) -> bytes:
     try:
         img = Image.open(io.BytesIO(data))
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Could not read image file: {exc}. Please upload a valid image.",
-        )
+        raise ValueError(f"Could not read image: {exc}")
 
     # Convert modes properly while preserving transparency for WebP
     if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
@@ -91,7 +104,14 @@ async def upload_image(
     limit = settings.MAX_LOGO_SIZE_MB if is_logo else settings.MAX_IMAGE_SIZE_MB
     _validate_size(raw, limit)
 
-    compressed = await asyncio.to_thread(_compress, raw)
+    # Compress in thread to avoid blocking the event loop
+    try:
+        compressed = await asyncio.to_thread(_compress, raw)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        )
 
     storage_path = f"{website_id}/{slot}.webp"
     bucket = settings.SUPABASE_STORAGE_BUCKET
@@ -114,11 +134,10 @@ async def upload_image(
         raise
     except Exception as exc:
         logger.exception(
-            "Storage upload failed for website_id=%s, slot=%s, path=%s: %s",
+            "Storage upload failed for website_id=%s, slot=%s, path=%s",
             website_id,
             slot,
             storage_path,
-            exc,
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -126,7 +145,9 @@ async def upload_image(
         )
 
     # Build public URL
-    public_url = f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{bucket}/{storage_path}"
+    public_url = (
+        f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{bucket}/{storage_path}"
+    )
     return public_url
 
 

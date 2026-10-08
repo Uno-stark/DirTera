@@ -292,6 +292,22 @@ async def upload_thumbnail(
 
 
 @router.delete(
+    "/{website_id}/images/logo",
+    status_code=204,
+    summary="Delete the listing logo",
+)
+async def delete_logo(
+    website_id: str,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    website = await website_service.get_website_owned_by(website_id, current_user.id, db)
+    await image_service.delete_image(website_id, "logo")
+    website.logo_url = None
+    await db.flush()
+
+
+@router.delete(
     "/{website_id}/images/thumbnail",
     status_code=204,
     summary="Delete the cover/thumbnail image",
@@ -322,7 +338,6 @@ async def upload_gallery_image(
     db: DBSession,
     file: UploadFile = File(..., description="Gallery image (JPEG, PNG, WEBP — max 5 MB)"),
 ):
-    
     website = await website_service.get_website_owned_by(website_id, current_user.id, db)
 
     current_urls = _split_image_urls(website.image_urls)
@@ -367,7 +382,6 @@ async def delete_gallery_image(
     current_user: CurrentUser,
     db: DBSession,
 ):
-
     website = await website_service.get_website_owned_by(website_id, current_user.id, db)
 
     current_urls = _split_image_urls(website.image_urls)
@@ -383,22 +397,6 @@ async def delete_gallery_image(
 
     current_urls.pop(index)
     website.image_urls = ",".join(current_urls) if current_urls else None
-    await db.flush()
-
-
-@router.delete(
-    "/{website_id}/images/logo",
-    status_code=204,
-    summary="Delete the listing logo",
-)
-async def delete_logo(
-    website_id: str,
-    current_user: CurrentUser,
-    db: DBSession,
-):
-    website = await website_service.get_website_owned_by(website_id, current_user.id, db)
-    await image_service.delete_image(website_id, "logo")
-    website.logo_url = None
     await db.flush()
 
 
