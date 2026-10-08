@@ -216,12 +216,69 @@ async def upload_logo(
     website.logo_url = url
     await db.flush()
 
+    current_urls = _split_image_urls(website.image_urls)
     return ImageUploadResponse(
         slot="logo",
         url=url,
         logo_url=url,
-        image_urls=_split_image_urls(website.image_urls),
+        thumbnail_url=current_urls[0] if current_urls else None,
+        image_urls=current_urls,
     )
+
+
+@router.post(
+    "/{website_id}/images/thumbnail",
+    response_model=ImageUploadResponse,
+    summary="Upload or replace the listing cover/thumbnail image",
+)
+async def upload_thumbnail(
+    website_id: str,
+    current_user: CurrentUser,
+    db: DBSession,
+    file: UploadFile = File(..., description="Cover/thumbnail image (JPEG, PNG, WEBP — max 5 MB)"),
+):
+    website = await website_service.get_website_owned_by(website_id, current_user.id, db)
+
+    url = await image_service.upload_image(
+        file=file, website_id=website_id, slot="thumbnail", is_logo=False
+    )
+
+    current_urls = _split_image_urls(website.image_urls)
+    if current_urls:
+        current_urls[0] = url
+    else:
+        current_urls.append(url)
+
+    website.image_urls = ",".join(current_urls)
+    await db.flush()
+
+    return ImageUploadResponse(
+        slot="thumbnail",
+        url=url,
+        logo_url=website.logo_url,
+        thumbnail_url=url,
+        image_urls=current_urls,
+    )
+
+
+@router.delete(
+    "/{website_id}/images/thumbnail",
+    status_code=204,
+    summary="Delete the cover/thumbnail image",
+)
+async def delete_thumbnail(
+    website_id: str,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    website = await website_service.get_website_owned_by(website_id, current_user.id, db)
+    await image_service.delete_image(website_id, "thumbnail")
+
+    current_urls = _split_image_urls(website.image_urls)
+    if current_urls:
+        current_urls.pop(0)
+        website.image_urls = ",".join(current_urls) if current_urls else None
+        await db.flush()
 
 
 @router.post(
@@ -264,6 +321,7 @@ async def upload_gallery_image(
         slot=slot,
         url=url,
         logo_url=website.logo_url,
+        thumbnail_url=current_urls[0] if current_urls else None,
         image_urls=current_urls,
     )
 
