@@ -1,8 +1,9 @@
 """
 Image upload service — Supabase Storage backend.
 
-Uses the async Supabase client (acreate_client) so uploads never block
-the event loop. Pillow compression still runs in a thread (CPU-bound).
+Uses the sync Supabase client (create_client) with storage operations
+off-loaded to threads via asyncio.to_thread(). Pillow WebP compression
+also runs in a background thread (CPU-bound).
 """
 
 from __future__ import annotations
@@ -11,9 +12,9 @@ import asyncio
 import io
 import logging
 import mimetypes
+import threading
 from typing import Literal
 
-import httpx
 from fastapi import HTTPException, UploadFile, status
 from PIL import Image
 
@@ -27,38 +28,32 @@ _ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 # Image slot type
 ImageSlot = Literal["logo", "thumbnail", "img_0", "img_1", "img_2"]
 
-# ── Shared async HTTP client (one per process) ────────────────────────────────
-# httpx.AsyncClient is fully async-native and thread-safe.
-# We create it lazily to avoid issues at import time.
-_http_client: httpx.AsyncClient | None = None
+
+# ── Singleton Supabase client ─────────────────────────────────────────────────
+_client_lock = threading.Lock()
+_supabase = None
 
 
-def _storage_headers() -> dict:
-    """Build auth + content headers for every Supabase Storage request."""
-    return {
-        "Authorization": f"Bearer {settings.SUPABASE_SECRET_KEY}",
-        "apikey": settings.SUPABASE_SECRET_KEY,
-    }
-
-
-def _storage_url(path: str) -> str:
-    """Full URL to a Supabase Storage v1 object."""
-    base = settings.SUPABASE_URL.rstrip("/")
-    bucket = settings.SUPABASE_STORAGE_BUCKET
-    return f"{base}/storage/v1/object/{bucket}/{path}"
-
-
-def _public_url(storage_path: str) -> str:
-    base = settings.SUPABASE_URL.rstrip("/")
-    bucket = settings.SUPABASE_STORAGE_BUCKET
-    return f"{base}/storage/v1/object/public/{bucket}/{storage_path}"
-
-
-async def _client() -> httpx.AsyncClient:
-    global _http_client
-    if _http_client is None or _http_client.is_closed:
-        _http_client = httpx.AsyncClient(timeout=60.0)
-    return _http_client
+def _get_client():
+    """Return the process-level sync Supabase client (lazy singleton)."""
+    global _supabase
+    if _supabase is not None:
+        return _supabase
+    with _client_lock:
+        if _supabase is not None:          # double-checked locking
+            return _supabase
+        if not settings.SUPABASE_URL or not settings.SUPABASE_SECRET_KEY:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Image storage is not configured.",
+            )
+        from supabase import create_client
+        _supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SECRET_KEY)
+        logger.info(
+            "Supabase client initialised (url=%s, bucket=%s)",
+            settings.SUPABASE_URL, settings.SUPABASE_STORAGE_BUCKET,
+        )
+    return _supabase
 
 
 # ── Validation helpers ────────────────────────────────────────────────────────
@@ -105,6 +100,29 @@ def _compress(data: bytes) -> bytes:
     return buf.getvalue()
 
 
+# ── Supabase Storage helpers (sync — run inside to_thread) ────────────────────
+
+def _do_upload(storage_path: str, data: bytes) -> None:
+    """Upload bytes to Supabase Storage (sync, meant for to_thread)."""
+    client = _get_client()
+    bucket = settings.SUPABASE_STORAGE_BUCKET
+    client.storage.from_(bucket).upload(
+        path=storage_path,
+        file=data,
+        file_options={
+            "content-type": "image/webp",
+            "upsert": "true",
+        },
+    )
+
+
+def _do_remove(paths: list[str]) -> None:
+    """Remove files from Supabase Storage (sync, meant for to_thread)."""
+    client = _get_client()
+    bucket = settings.SUPABASE_STORAGE_BUCKET
+    client.storage.from_(bucket).remove(paths)
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 async def upload_image(
@@ -131,72 +149,43 @@ async def upload_image(
 
     storage_path = f"{website_id}/{slot}.webp"
 
-    # POST with x-upsert: true → creates or replaces
-    headers = {
-        **_storage_headers(),
-        "Content-Type": "image/webp",
-        "x-upsert": "true",
-    }
-
     try:
-        http = await _client()
-        resp = await http.post(
-            _storage_url(storage_path),
-            content=compressed,
-            headers=headers,
-        )
-    except httpx.TransportError as exc:
-        logger.exception("Network error uploading %s/%s", website_id, slot)
-        raise HTTPException(status_code=502, detail=f"Storage network error: {exc}")
-
-    if resp.status_code not in (200, 201):
-        logger.error(
-            "Storage upload rejected %s/%s — status=%s body=%s",
-            website_id, slot, resp.status_code, resp.text[:300],
-        )
+        await asyncio.to_thread(_do_upload, storage_path, compressed)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Storage upload failed — %s/%s", website_id, slot)
         raise HTTPException(
-            status_code=400,
-            detail=f"Storage rejected upload (HTTP {resp.status_code}): {resp.text[:200]}",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Storage upload failed: {exc}",
         )
 
+    public_url = (
+        f"{settings.SUPABASE_URL.rstrip('/')}"
+        f"/storage/v1/object/public/{settings.SUPABASE_STORAGE_BUCKET}/{storage_path}"
+    )
     logger.info("Uploaded %s → %s", slot, storage_path)
-    return _public_url(storage_path)
+    return public_url
 
 
 async def delete_image(website_id: str, slot: ImageSlot) -> None:
     """Remove a single image slot from Supabase Storage (best-effort)."""
     if not settings.SUPABASE_URL or not settings.SUPABASE_SECRET_KEY:
         return
-
     storage_path = f"{website_id}/{slot}.webp"
-    bucket = settings.SUPABASE_STORAGE_BUCKET
-    base = settings.SUPABASE_URL.rstrip("/")
-    # Supabase Storage delete API: POST /storage/v1/object/remove/{bucket}
-    url = f"{base}/storage/v1/object/remove/{bucket}"
-
     try:
-        http = await _client()
-        resp = await http.post(
-            url,
-            json={"prefixes": [storage_path]},
-            headers={
-                **_storage_headers(),
-                "Content-Type": "application/json",
-            },
-        )
-        if resp.status_code not in (200, 204):
-            logger.warning(
-                "Storage delete returned %s for %s: %s",
-                resp.status_code, storage_path, resp.text[:200],
-            )
+        await asyncio.to_thread(_do_remove, [storage_path])
     except Exception as exc:
         logger.warning("Failed to delete image %s: %s", storage_path, exc)
 
 
 async def delete_all_website_images(website_id: str) -> None:
     """Best-effort delete of all image slots for a website."""
-    slots: list[ImageSlot] = ["logo", "thumbnail", "img_0", "img_1", "img_2"]
-    await asyncio.gather(
-        *[delete_image(website_id, s) for s in slots],
-        return_exceptions=True,
-    )
+    if not settings.SUPABASE_URL or not settings.SUPABASE_SECRET_KEY:
+        return
+    bucket = settings.SUPABASE_STORAGE_BUCKET
+    paths = [f"{website_id}/{s}.webp" for s in ("logo", "thumbnail", "img_0", "img_1", "img_2")]
+    try:
+        await asyncio.to_thread(_do_remove, paths)
+    except Exception as exc:
+        logger.warning("Failed to delete all images for %s: %s", website_id, exc)
