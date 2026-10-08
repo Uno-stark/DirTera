@@ -5,6 +5,7 @@
   width: 100%;
   min-height: 100vh;
   background: #f7f8fa;
+  gap: 0;
 }
 
 .admin-sidebar {
@@ -21,7 +22,9 @@
   left: 0;
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
   z-index: 100;
+  transition: width 0.2s ease, min-width 0.2s ease;
 }
 
 .admin-brand {
@@ -551,3 +554,144 @@
   width: 100%;
   text-align: center;
 }
+
+/* -- Top Navbar ------------------------------------------------ */
+.admin-topnav {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 56px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 12px;
+  box-sizing: border-box;
+}
+.admin-topnav-menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.admin-topnav-menu-btn:hover { background: #f3f4f6; }
+.admin-topnav-brand {
+  font-size: 17px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.3px;
+}
+.admin-topnav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.admin-notif-btn {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.admin-notif-btn:hover { background: #f3f4f6; }
+.admin-notif-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: #dc2626;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 99px;
+  padding: 1px 4px;
+  min-width: 16px;
+  text-align: center;
+  line-height: 14px;
+}
+.admin-profile-wrap { position: relative; }
+.admin-profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.admin-profile-btn:hover { background: #f3f4f6; }
+.admin-profile-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.admin-profile-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-profile-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+  min-width: 200px;
+  z-index: 200;
+  overflow: hidden;
+}
+.admin-profile-dropdown-header {
+  padding: 14px 16px;
+  background: #f9fafb;
+}
+.admin-profile-dropdown-divider {
+  height: 1px;
+  background: #e5e7eb;
+}
+.admin-profile-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 11px 16px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+.admin-profile-dropdown-item:hover { background: #f3f4f6; }
+.admin-content { padding-top: 56px; }
+.admin-sticky-header { top: 56px; }
+.admin-sidebar { overflow: hidden; transition: width 0.2s ease, min-width 0.2s ease; }

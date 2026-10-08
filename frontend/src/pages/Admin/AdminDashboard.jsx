@@ -7,6 +7,7 @@ import {
   CreditCard,
   Tag,
   Link,
+  Star,
 } from "lucide-react";
 import api from "../../api/client";
 
@@ -109,8 +110,19 @@ function AdminDashboard() {
 
   const defaultEnd = new Date().toISOString().slice(0, 10);
   const defaultStart = (() => { const d = new Date(); d.setDate(d.getDate() - 29); return d.toISOString().slice(0, 10); })();
+  const [filterPreset, setFilterPreset] = useState("30");
   const [filterStart, setFilterStart] = useState(defaultStart);
   const [filterEnd, setFilterEnd] = useState(defaultEnd);
+
+  const applyPreset = (preset) => {
+    setFilterPreset(preset);
+    if (preset === "custom") return;
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - (Number(preset) - 1));
+    setFilterEnd(end.toISOString().slice(0, 10));
+    setFilterStart(start.toISOString().slice(0, 10));
+  };
 
   useEffect(() => {
     api.get("/api/v1/admin/dashboard")

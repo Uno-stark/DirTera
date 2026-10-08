@@ -1,6 +1,5 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
-
 import PageLoader from "./components/PageLoader";
 
 // ── Public pages ──────────────────────────────────────────────────────────────
@@ -24,8 +23,11 @@ const Categories         = lazy(() => import("./pages/Admin/Categories"));
 const Domains            = lazy(() => import("./pages/Admin/Domains"));
 const AdminWebsites      = lazy(() => import("./pages/Admin/Websites"));
 const Users              = lazy(() => import("./pages/Admin/Users"));
+const Requests           = lazy(() => import("./pages/Admin/Requests"));
 const AdminAnalysis      = lazy(() => import("./pages/Admin/AdminAnalytics"));
 const AdminSubscriptions = lazy(() => import("./pages/Admin/AdminSubscriptions"));
+const AdminProfile       = lazy(() => import("./pages/Admin/AdminProfile"));
+const AdminSettings      = lazy(() => import("./pages/Admin/AdminSettings"));
 
 // ── Shared ────────────────────────────────────────────────────────────────────
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -50,7 +52,6 @@ function AuthModalLayer() {
 
         {/* Protected */}
         <Route element={<ProtectedRoute />}>
-
           {/* User pages */}
           <Route path="/account"   element={<Account />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -65,13 +66,16 @@ function AuthModalLayer() {
             <Route path="domains"       element={<Domains />} />
             <Route path="websites"      element={<AdminWebsites />} />
             <Route path="users"         element={<Users />} />
+            <Route path="requests"      element={<Requests />} />
+            <Route path="profile"       element={<AdminProfile />} />
+            <Route path="settings"      element={<AdminSettings />} />
           </Route>
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {/* ── Modal overlay ─────── */}
+      {/* ── Modal overlay ─────────── */}
       {backgroundLocation && (
         <Routes>
           <Route path="/login"    element={<Auth />} />
