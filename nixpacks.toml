@@ -1,5 +1,6 @@
 [phases.setup]
 nixPkgs = ["python311", "python311Packages.pip", "gcc", "nodejs_22"]
+nixpkgsArchive = "51ad838b03a05b1de6f9f2a0fffecee64a9788ee"
 
 [phases.install]
 cmds = [
