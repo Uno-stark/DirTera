@@ -1,0 +1,288 @@
+.sub-page {
+  min-height: 100vh;
+  padding: 40px;
+  background: #f7f8fa;
+}
+
+.sub-header {
+  max-width: 860px;
+  margin: 0 auto 32px;
+}
+
+.sub-header h1 {
+  margin: 12px 0 6px;
+  font-size: 32px;
+  color: #111827;
+}
+
+.sub-header p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.sub-body {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+/* ── Plan cards ─────────────────────────────────────────────── */
+
+.sub-plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 16px;
+}
+
+.sub-plan-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 24px 20px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.sub-plan-card:hover {
+  border-color: #111827;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+}
+
+.sub-plan-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sub-plan-price {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.sub-plan-price small {
+  font-size: 14px;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.sub-plan-duration {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.sub-plan-desc {
+  font-size: 14px;
+  color: #374151;
+  margin-top: 4px;
+  flex: 1;
+}
+
+.sub-plan-cta {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  margin-top: 8px;
+}
+
+/* ── Payment form ───────────────────────────────────────────── */
+
+.sub-payment-form {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 32px;
+  max-width: 520px;
+}
+
+.sub-cost-preview h2 {
+  margin: 20px 0 16px;
+  font-size: 20px;
+  color: #111827;
+}
+
+.sub-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.sub-preview-table td {
+  padding: 10px 0;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+  font-size: 14px;
+}
+
+.sub-preview-table td:first-child {
+  color: #6b7280;
+  width: 40%;
+}
+
+.sub-preview-total td {
+  font-weight: 700;
+  font-size: 16px;
+  color: #111827;
+  border-bottom: none;
+  padding-top: 14px;
+}
+
+.sub-instructions {
+  font-size: 14px;
+  color: #374151;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 24px;
+}
+
+.sub-receipt-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sub-receipt-form label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.sub-receipt-form input {
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #111827;
+  outline: none;
+}
+
+.sub-receipt-form input:focus {
+  border-color: #111827;
+}
+
+/* ── Success ─────────────────────────────────────────────────── */
+
+.sub-success {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 40px 32px;
+  text-align: center;
+  max-width: 480px;
+}
+
+.sub-success-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #111827;
+  color: white;
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.sub-success h2 {
+  margin: 0 0 8px;
+  color: #111827;
+}
+
+.sub-success p {
+  color: #6b7280;
+  margin-bottom: 24px;
+}
+
+.sub-success-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  text-align: left;
+  margin-bottom: 28px;
+  font-size: 14px;
+}
+
+.sub-success-details dt {
+  color: #6b7280;
+}
+
+.sub-success-details dd {
+  margin: 0;
+  color: #111827;
+  font-weight: 600;
+}
+
+/* ── Shared ──────────────────────────────────────────────────── */
+
+.sub-back-btn {
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  display: inline-block;
+}
+
+.sub-back-btn:hover {
+  background: #f3f4f6;
+}
+
+.sub-submit-btn {
+  padding: 12px 20px;
+  background: #111827;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.sub-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sub-loading {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.sub-error {
+  padding: 12px 14px;
+  background: #fef2f2;
+  color: #991b1b;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .sub-page {
+    padding: 24px 16px;
+  }
+
+  .sub-plans {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sub-payment-form {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 400px) {
+  .sub-plans {
+    grid-template-columns: 1fr;
+  }
+}
