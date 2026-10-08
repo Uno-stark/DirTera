@@ -1,34 +1,33 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
-// Public pages
-import Home           from "./pages/Home";
-import BusinessDetail from "./pages/BusinessDetail";
+import PageLoader from "./components/PageLoader";
 
-// Auth — unified single component
-import Auth           from "./pages/User/Auth";
-import GoogleCallback from "./pages/User/GoogleCallback";
+// ── Public pages ──────────────────────────────────────────────────────────────
+const Home           = lazy(() => import("./pages/Home"));
+const BusinessDetail = lazy(() => import("./pages/BusinessDetail"));
+const Legal          = lazy(() => import("./pages/Legal"));
+const DomainIndex    = lazy(() => import("./pages/DomainIndex"));
 
-// User pages
-import Account       from "./pages/User/Account";
-import Dashboard     from "./pages/User/Dashboard";
-import ListingForm   from "./pages/User/ListingForm";
-import Notifications from "./pages/User/Notifications";
-import Analytics     from "./pages/User/Analytics";
-import Subscribe     from "./pages/User/Subscribe";
-import Subscriptions from "./pages/User/Subscriptions";
+// ── Auth ──────────────────────────────────────────────────────────────────────
+const Auth           = lazy(() => import("./pages/User/Auth"));
+const GoogleCallback = lazy(() => import("./pages/User/GoogleCallback"));
 
-// Admin pages
-import AdminLayout    from "./pages/Admin/AdminLayout";
-import AdminDashboard from "./pages/Admin/AdminDashboard";
-import Categories from "./pages/Admin/Categories";
-import Domains from "./pages/Admin/Domains";
-import AdminWebsites from "./pages/Admin/Websites";
-import Users from "./pages/Admin/Users";
-import Requests from "./pages/Admin/Requests";
-import AdminAnalysis from "./pages/Admin/AdminAnalytics";
-import AdminSubscriptions from "./pages/Admin/AdminSubscriptions";
+// ── User pages ────────────────────────────────────────────────────────────────
+const Account    = lazy(() => import("./pages/User/Account"));
+const Dashboard  = lazy(() => import("./pages/User/Dashboard"));
 
-// Shared
+// ── Admin pages ───────────────────────────────────────────────────────────────
+const AdminLayout        = lazy(() => import("./pages/Admin/AdminLayout"));
+const AdminDashboard     = lazy(() => import("./pages/Admin/AdminDashboard"));
+const Categories         = lazy(() => import("./pages/Admin/Categories"));
+const Domains            = lazy(() => import("./pages/Admin/Domains"));
+const AdminWebsites      = lazy(() => import("./pages/Admin/Websites"));
+const Users              = lazy(() => import("./pages/Admin/Users"));
+const AdminAnalysis      = lazy(() => import("./pages/Admin/AdminAnalytics"));
+const AdminSubscriptions = lazy(() => import("./pages/Admin/AdminSubscriptions"));
+
+// ── Shared ────────────────────────────────────────────────────────────────────
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function AuthModalLayer() {
@@ -41,7 +40,9 @@ function AuthModalLayer() {
       <Routes location={backgroundLocation || location}>
         <Route path="/"                      element={<Home />} />
         <Route path="/businesses/:websiteId" element={<BusinessDetail />} />
+        <Route path="/domain/:domainSlug"    element={<DomainIndex />} />
         <Route path="/auth/callback"         element={<GoogleCallback />} />
+        <Route path="/legal/:type"           element={<Legal />} />
 
         {/* Auth — both /login and /register serve the unified Auth component */}
         <Route path="/login"    element={<Auth />} />
@@ -49,36 +50,28 @@ function AuthModalLayer() {
 
         {/* Protected */}
         <Route element={<ProtectedRoute />}>
-          
+
           {/* User pages */}
-          <Route path="/account" element={<Account />} />
+          <Route path="/account"   element={<Account />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/listings/new" element={<ListingForm />} />
-          <Route path="/dashboard/listings/:websiteId/edit" element={<ListingForm />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/analytics/:websiteId" element={<Analytics />} />
-          <Route path="/subscribe/:websiteId" element={<Subscribe />} />
-          <Route path="/subscriptions" element={<Subscriptions />} />
 
           {/* Admin */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="analytics" element={<AdminAnalysis />} />
+            <Route path="dashboard"     element={<AdminDashboard />} />
+            <Route path="analytics"     element={<AdminAnalysis />} />
             <Route path="subscriptions" element={<AdminSubscriptions />} />
-            <Route path="categories" element={<Categories />} />
-            <Route path="domains" element={<Domains />} />
-            <Route path="websites" element={<AdminWebsites />} />
-            <Route path="users" element={<Users />} />
-            <Route path="requests" element={<Requests />} />
+            <Route path="categories"    element={<Categories />} />
+            <Route path="domains"       element={<Domains />} />
+            <Route path="websites"      element={<AdminWebsites />} />
+            <Route path="users"         element={<Users />} />
           </Route>
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {/* ── Modal overlay (only when backgroundLocation is set) ─────── */}
+      {/* ── Modal overlay ─────── */}
       {backgroundLocation && (
         <Routes>
           <Route path="/login"    element={<Auth />} />
@@ -92,7 +85,9 @@ function AuthModalLayer() {
 function App() {
   return (
     <BrowserRouter>
-      <AuthModalLayer />
+      <Suspense fallback={<PageLoader />}>
+        <AuthModalLayer />
+      </Suspense>
     </BrowserRouter>
   );
 }

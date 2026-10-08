@@ -1,23 +1,76 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.inmemory import InMemoryBackend
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from sqlalchemy import delete
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.core.database import AsyncSessionLocal
 from app.core.limiter import limiter
+from app.models.token_blocklist import TokenBlocklist
+
+
+# ── Blocklist cleanup ─────────────────────────────────────────────────────────
+
+async def _purge_expired_tokens() -> None:
+    """Delete blocklist rows whose token has already expired.
+    """
+    while True:
+        try:
+            async with AsyncSessionLocal() as session:
+                await session.execute(
+                    delete(TokenBlocklist).where(
+                        TokenBlocklist.expires_at < datetime.now(timezone.utc)
+                    )
+                )
+                await session.commit()
+        except Exception:
+            pass  # never crash the server over a cleanup task
+        await asyncio.sleep(3600)   # repeat every hour
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Start the background cleanup task for expired blocklist tokens
+    cleanup_task = asyncio.create_task(_purge_expired_tokens())
+
+    if settings.CACHE_BACKEND == "redis":
+        # Import lazily so the `redis` package is not required when using
+        # the in-memory backend.
+        from fastapi_cache.backends.redis import RedisBackend
+        from redis import asyncio as aioredis
+
+        if not settings.REDIS_URL:
+            raise RuntimeError(
+                
+            )
+        redis_client = aioredis.from_url(
+            settings.REDIS_URL, encoding="utf-8", decode_responses=False
+        )
+        FastAPICache.init(RedisBackend(redis_client), prefix="dirterra-cache")
+    else:
+        FastAPICache.init(InMemoryBackend(), prefix="dirterra-cache")
+
     yield
+
+    # Graceful shutdown — cancel the cleanup loop
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
 
 
 def create_app() -> FastAPI:
@@ -37,7 +90,6 @@ def create_app() -> FastAPI:
     # ── Rate limiter ──────────────────────────────────────────────────────────
     if settings.RATE_LIMIT_ENABLED:
         app.state.limiter = limiter
-
         app.add_middleware(SlowAPIMiddleware)
 
         @app.exception_handler(RateLimitExceeded)
@@ -52,11 +104,15 @@ def create_app() -> FastAPI:
                     )
                 },
                 headers={
-                    "Retry-After": str(exc.limit.reset_at) if hasattr(exc.limit, "reset_at") else "60",
+                    "Retry-After": (
+                        str(exc.limit.reset_at)
+                        if hasattr(exc.limit, "reset_at")
+                        else "60"
+                    ),
                 },
             )
 
-    # ── CORS 
+    # ── CORS ──────────────────────────────────────────────────────────────────
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins_list,
@@ -68,7 +124,7 @@ def create_app() -> FastAPI:
     if not settings.DEBUG:
         app.add_middleware(
             TrustedHostMiddleware,
-            allowed_hosts=["*"], 
+            allowed_hosts=["*"],
         )
 
     # ── Routers ───────────────────────────────────────────────────────────────

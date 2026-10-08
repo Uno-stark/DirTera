@@ -24,7 +24,7 @@ function GoogleCallback() {
       try {
         const { data } = await api.get("/api/v1/auth/me");
         setUser(data);
-        navigate("/account", { replace: true });
+        navigate("/", { replace: true });
       } catch {
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
@@ -33,18 +33,9 @@ function GoogleCallback() {
     };
 
     loadUser();
-  }, [navigate, searchParams]);
+  }, [navigate, searchParams, setUser]);
 
-  return (
-    <main className="auth-page">
-      <section className="auth-card">
-        <div className="auth-header">
-          <h1>Signing you in...</h1>
-          <p>Please wait while we complete your Google sign-in.</p>
-        </div>
-      </section>
-    </main>
-  );
+  return null;
 }
 
 export default GoogleCallback;

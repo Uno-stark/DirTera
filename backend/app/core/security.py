@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -13,6 +14,7 @@ from app.core.config import settings
 def _create_token(subject: str, expires_delta: timedelta, extra: dict | None = None) -> str:
     payload: dict[str, Any] = {
         "sub": subject,
+        "jti": str(uuid.uuid4()),
         "iat": datetime.now(timezone.utc),
         "exp": datetime.now(timezone.utc) + expires_delta,
     }

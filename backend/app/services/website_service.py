@@ -132,13 +132,15 @@ def to_public_detail(website: Website) -> WebsitePublicDetailOut:
         category_slug=website.category_slug,
         domain_slug=website.domain_slug,
         tags=website.tags,
+        contact_email=website.contact_email,
+        phone_number=website.phone_number,
+        social_links=website.social_links,
         is_verified=website.is_verified,
         is_premiered=website.is_premiered,
         avg_rating=website.avg_rating,
         review_count=website.review_count,
         total_clicks=website.total_clicks,
         created_at=website.created_at,
-        # owner fields — display name and avatar only, no email/id
         owner_display_name=website.owner.full_name if website.owner else None,
         owner_avatar_url=website.owner.avatar_url if website.owner else None,
     )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import List
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -25,3 +25,14 @@ class AggregatedStats(BaseModel):
     clicks_last_30_days: int
     top_referrers: List[dict]
     clicks_by_country: List[dict]
+
+
+class BulkStatsRequest(BaseModel):
+    website_ids: List[str]
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+
+
+class BulkStatsResponse(BaseModel):
+    # website_id → total clicks in the requested range
+    stats: Dict[str, int]

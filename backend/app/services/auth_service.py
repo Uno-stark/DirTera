@@ -72,7 +72,7 @@ async def google_login_or_register(
         user = User(
             email=email,
             full_name=full_name,
-            avatar_url=avatar_url,
+            avatar_url=avatar_url or None,
             google_id=google_id,
             is_verified=True,
         )
@@ -82,8 +82,11 @@ async def google_login_or_register(
         # Merge Google ID if this account previously registered by email
         if user.google_id is None:
             user.google_id = google_id
-        user.avatar_url = user.avatar_url or avatar_url
-        user.full_name = user.full_name or full_name
+        # Always refresh from Google so stale / expired picture URLs self-heal
+        if avatar_url:
+            user.avatar_url = avatar_url
+        if not user.full_name and full_name:
+            user.full_name = full_name
 
     tokens = TokenResponse(
         access_token=create_access_token(user.id, user.is_admin),

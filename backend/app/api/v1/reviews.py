@@ -13,9 +13,10 @@ PATCH  /reviews/{review_id}/hide  → hide/show a review
 
 import math
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.database import get_db
@@ -27,6 +28,15 @@ from app.schemas.common import PaginatedResponse
 from app.schemas.review import ReviewCreate, ReviewOut, ReviewUpdate
 
 router = APIRouter(prefix="/reviews", tags=["Reviews"])
+
+
+def _to_out(review: Review) -> ReviewOut:
+    """Convert a Review ORM row (with .author loaded) to ReviewOut."""
+    out = ReviewOut.model_validate(review)
+    if review.author:
+        out.author_name = review.author.full_name or review.author.email.split("@")[0]
+        out.author_avatar_url = review.author.avatar_url
+    return out
 
 
 async def _recalc_rating(website_id: str, db: AsyncSession) -> None:
@@ -48,6 +58,7 @@ async def _recalc_rating(website_id: str, db: AsyncSession) -> None:
 @limiter.limit(settings.RATE_LIMIT_REVIEW)
 async def create_review(
     request: Request,
+    response: Response,
     website_id: str,
     payload: ReviewCreate,
     current_user: CurrentUser,
@@ -74,7 +85,12 @@ async def create_review(
     db.add(review)
     await db.flush()
     await _recalc_rating(website_id, db)
-    return review
+    # Re-fetch with author eager-loaded so _to_out can populate author fields
+    result = await db.execute(
+        select(Review).where(Review.id == review.id).options(selectinload(Review.author))
+    )
+    review = result.scalar_one()
+    return _to_out(review)
 
 
 @router.get("/{website_id}", response_model=PaginatedResponse[ReviewOut])
@@ -94,14 +110,15 @@ async def list_reviews(
 
     rows = (
         await db.execute(
-            query.offset((page - 1) * page_size)
+            query.options(selectinload(Review.author))
+            .offset((page - 1) * page_size)
             .limit(page_size)
             .order_by(Review.created_at.desc())
         )
     ).scalars().all()
 
     return PaginatedResponse(
-        items=list(rows),
+        items=[_to_out(r) for r in rows],
         total=total,
         page=page,
         page_size=page_size,
@@ -129,7 +146,12 @@ async def update_review(
         setattr(review, field, value)
     await db.flush()
     await _recalc_rating(review.website_id, db)
-    return review
+    # Re-fetch with author
+    result2 = await db.execute(
+        select(Review).where(Review.id == review.id).options(selectinload(Review.author))
+    )
+    review = result2.scalar_one()
+    return _to_out(review)
 
 
 @router.delete("/{review_id}", status_code=204)

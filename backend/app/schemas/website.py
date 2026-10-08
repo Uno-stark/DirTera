@@ -106,6 +106,10 @@ class WebsitePublicOut(BaseModel):
 
 
 class WebsitePublicDetailOut(WebsitePublicOut):
+    
+    contact_email: Optional[str] = None
+    phone_number: Optional[str] = None
+    social_links: Optional[str] = None
     owner_display_name: Optional[str] = None
     owner_avatar_url: Optional[str] = None
 

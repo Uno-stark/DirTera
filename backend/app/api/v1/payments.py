@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -78,6 +78,7 @@ async def subscription_info(
 @limiter.limit(settings.RATE_LIMIT_PAYMENT)
 async def verify_payment(
     request: Request,
+    response: Response,
     payload: VerifyPaymentRequest,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),

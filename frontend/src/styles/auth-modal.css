@@ -1,9 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════════════════
-   Auth modal — Google-only sign in.
-   Dark frosted glass, coherent with the translucent navbar palette.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* ── Backdrop ─────────────────────────────────────────────────────────────── */
 
 .auth-backdrop {
   position: fixed;
@@ -117,6 +111,13 @@
 
 .auth-brand-icon {
   color: #f97316;
+}
+
+.auth-brand-logo {
+  height: 28px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
 }
 
 .auth-header h2 {

@@ -1,19 +1,16 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import api from "../api/client";
+import { createContext, useContext } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { fetchCategoriesNav, keys } from "../api/queries";
 
 const TaxonomyContext = createContext({ categories: [], isLoading: true });
 
 export function TaxonomyProvider({ children }) {
-  const [categories, setCategories] = useState([]);
-  const [isLoading, setIsLoading]   = useState(true);
-
-  useEffect(() => {
-    api
-      .get("/api/v1/categories/with-domains")
-      .then(({ data }) => setCategories(data))
-      .catch(() => setCategories([]))   // fail silently — nav still renders
-      .finally(() => setIsLoading(false));
-  }, []);
+  const { data: categories = [], isLoading } = useQuery({
+    queryKey: keys.categoriesNav(),
+    queryFn:  fetchCategoriesNav,
+    
+    staleTime: 5 * 60_000,
+  });
 
   return (
     <TaxonomyContext.Provider value={{ categories, isLoading }}>

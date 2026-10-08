@@ -1,27 +1,8 @@
-import { useEffect, useState } from "react";
-
-import api from "../api/client";
 import "../styles/categories.css";
+import { useTaxonomy } from "../context/TaxonomyContext";
 
 function CategoryList({ selectedCategory, onCategorySelect }) {
-  const [categories, setCategories] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const response = await api.get("/api/v1/categories");
-        setCategories(response.data);
-      } catch {
-        setError("We couldn't load categories right now.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadCategories();
-  }, []);
+  const { categories, isLoading } = useTaxonomy();
 
   return (
     <section className="categories-section">
@@ -35,17 +16,11 @@ function CategoryList({ selectedCategory, onCategorySelect }) {
           <p className="category-status">Loading categories...</p>
         )}
 
-        {error && (
-          <p className="category-status">{error}</p>
-        )}
-
-        {!isLoading && !error && (
+        {!isLoading && (
           <div className="category-list">
             <button
               type="button"
-              className={`category-item ${
-                !selectedCategory ? "category-item-active" : ""
-              }`}
+              className={`category-item ${!selectedCategory ? "category-item-active" : ""}`}
               onClick={() => onCategorySelect("")}
             >
               All
@@ -56,9 +31,7 @@ function CategoryList({ selectedCategory, onCategorySelect }) {
                 key={category.id}
                 type="button"
                 className={`category-item ${
-                  selectedCategory === category.slug
-                    ? "category-item-active"
-                    : ""
+                  selectedCategory === category.slug ? "category-item-active" : ""
                 }`}
                 onClick={() => onCategorySelect(category.slug)}
               >

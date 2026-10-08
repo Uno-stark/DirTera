@@ -1,8 +1,9 @@
 import math
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import RedirectResponse
+from fastapi_cache.decorator import cache
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -31,10 +32,14 @@ from app.services import analytics_service, image_service, website_service
 router = APIRouter(prefix="/websites", tags=["Websites"])
 _SORT_OPTIONS = ["score", "rating", "clicks", "newest"]
 
+# Cache TTL
+_CACHE_TTL = settings.CACHE_TTL_SECONDS
+
 
 # ── Public 
 
 @router.get("", response_model=PaginatedResponse[WebsitePublicOut], summary="Browse listings")
+@cache(expire=_CACHE_TTL)
 async def browse_websites(
     db: DBSession,
     page: int = Query(1, ge=1),
@@ -57,6 +62,7 @@ async def browse_websites(
 
 
 @router.get("/top", response_model=TopNResponse, summary="Top N listings")
+@cache(expire=_CACHE_TTL)
 async def top_websites(
     db: DBSession,
     limit: int = Query(10, ge=1, le=50),
@@ -87,6 +93,7 @@ async def multi_category(
 
 
 @router.get("/premiered", response_model=PaginatedResponse[WebsitePublicOut], summary="Premiered listings")
+@cache(expire=_CACHE_TTL)
 async def premiered_websites(
     db: DBSession,
     page: int = Query(1, ge=1),
@@ -140,6 +147,7 @@ async def admin_list_websites(
 
 
 @router.get("/{website_id}", response_model=WebsitePublicDetailOut, summary="Listing detail (public)")
+@cache(expire=_CACHE_TTL)
 async def get_website_public(website_id: str, db: DBSession):
     website = await website_service.get_website_by_id(website_id, db)
     return website_service.to_public_detail(website)
@@ -149,6 +157,7 @@ async def get_website_public(website_id: str, db: DBSession):
 @limiter.limit(settings.RATE_LIMIT_CLICK)
 async def click_redirect(
     request: Request,
+    response: Response,
     website_id: str,
     db: AsyncSession = Depends(get_db),
 ):

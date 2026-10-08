@@ -190,10 +190,28 @@
   cursor: pointer;
 }
 
-/* Logout */
+/* Logout + home link footer */
+
+.admin-sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-home-link {
+  display: block;
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: #6b7280;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+}
+.admin-home-link:hover { background: #1f2937; color: #d1d5db; }
 
 .admin-logout {
-  margin-top: auto;
   width: 100%;
   padding: 10px 12px;
   border: none;

@@ -1,14 +1,15 @@
-import { NavLink, Outlet, Navigate } from "react-router-dom";
+import { NavLink, Outlet, Navigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import "../../styles/admin.css";
 
 const navItems = [
-  { to: "/admin/dashboard", label: "Dashboard" },
-  { to: "/admin/requests", label: "Requests" },
-  { to: "/admin/categories", label: "Categories" },
-  { to: "/admin/domains", label: "Domains" },
-  { to: "/admin/websites", label: "Websites" },
-  { to: "/admin/users", label: "Users" },
+  { to: "/admin/dashboard",     label: "Dashboard"     },
+  { to: "/admin/websites",      label: "Websites"      },
+  { to: "/admin/users",         label: "Users"         },
+  { to: "/admin/categories",    label: "Categories"    },
+  { to: "/admin/domains",       label: "Domains"       },
+  { to: "/admin/analytics",     label: "Analytics"     },
+  { to: "/admin/subscriptions", label: "Subscriptions" },
 ];
 
 function AdminLayout() {
@@ -19,10 +20,6 @@ function AdminLayout() {
   if (!user || !user.is_admin) {
     return <Navigate to="/" replace />;
   }
-
-  const handleLogout = async () => {
-    await logout();
-  };
 
   return (
     <div className="admin-layout">
@@ -43,13 +40,12 @@ function AdminLayout() {
           ))}
         </nav>
 
-        <button
-          type="button"
-          className="admin-logout"
-          onClick={handleLogout}
-        >
-          Logout
-        </button>
+        <div className="admin-sidebar-footer">
+          <Link to="/" className="admin-home-link">← Back to home</Link>
+          <button type="button" className="admin-logout" onClick={logout}>
+            Logout
+          </button>
+        </div>
       </aside>
 
       <main className="admin-main">

@@ -159,6 +159,47 @@ async def get_aggregated_stats(website_id: str, db: AsyncSession) -> AggregatedS
     )
 
 
+async def get_bulk_click_totals(
+    website_ids: list[str],
+    db: AsyncSession,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+) -> dict[str, int]:
+    """
+    Return {website_id: total_clicks} for every id in *website_ids*
+    using a single GROUP-BY query instead of one query per site.
+    """
+    if not website_ids:
+        return {}
+
+    now = datetime.now(timezone.utc)
+    resolved_end   = end_date   if end_date   is not None else now.date()
+    resolved_start = start_date if start_date is not None else date(2000, 1, 1)
+
+    start_dt = datetime.combine(resolved_start, datetime.min.time()).replace(tzinfo=timezone.utc)
+    end_dt   = datetime.combine(resolved_end,   datetime.max.time()).replace(tzinfo=timezone.utc)
+
+    result = await db.execute(
+        select(
+            ClickEvent.website_id,
+            func.count(ClickEvent.id).label("cnt"),
+        )
+        .where(
+            ClickEvent.website_id.in_(website_ids),
+            ClickEvent.clicked_at >= start_dt,
+            ClickEvent.clicked_at <= end_dt,
+        )
+        .group_by(ClickEvent.website_id)
+    )
+    rows = result.all()
+
+    # Seed every requested id with 0 so sites with no clicks still appear
+    totals: dict[str, int] = {wid: 0 for wid in website_ids}
+    for row in rows:
+        totals[row.website_id] = row.cnt
+    return totals
+
+
 async def export_stats_csv(website_id: str, db: AsyncSession) -> str:
     """Return all click events as a CSV string."""
     result = await db.execute(

@@ -1,19 +1,17 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import api from "../api/client";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user,       setUser]       = useState(null);
+  const [isLoading,  setIsLoading]  = useState(true);
+  // "idle" | "pending" | "done" | "error"
+  const [logoutState, setLogoutState] = useState("idle");
 
   useEffect(() => {
     const accessToken = localStorage.getItem("access_token");
-
-    if (!accessToken) {
-      setIsLoading(false);
-      return;
-    }
+    if (!accessToken) { setIsLoading(false); return; }
 
     const loadUser = async () => {
       try {
@@ -30,11 +28,24 @@ export function AuthProvider({ children }) {
     loadUser();
   }, []);
 
-  const logout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    setUser(null);
-  };
+ 
+  const logout = useCallback(async () => {
+    setLogoutState("pending");
+    try {
+      await api.post("/api/v1/auth/logout");
+      setLogoutState("done");
+    } catch {
+      // Server-side revocation failed (network down, token already expired, …)
+      // Local logout still proceeds — token will expire on its own.
+      setLogoutState("error");
+    } finally {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      setUser(null);
+    }
+  }, []);
+
+  const clearLogoutState = useCallback(() => setLogoutState("idle"), []);
 
   const value = {
     user,
@@ -42,6 +53,8 @@ export function AuthProvider({ children }) {
     isLoading,
     isAuthenticated: Boolean(user),
     logout,
+    logoutState,
+    clearLogoutState,
   };
 
   return (

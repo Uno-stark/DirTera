@@ -1,38 +1,54 @@
+import { memo } from "react";
 import { Link } from "react-router-dom";
-import { Star } from "lucide-react";
+
+import Stars from "./Stars";
 import "../styles/business.css";
 
-function StarRow({ value, size = 12 }) {
-  const full  = Math.round(value);
-  const empty = 5 - full;
+
+function toWebpUrl(url) {
+  if (!url) return null;
+  const converted = url.replace(/\.(jpe?g|png)($|\?)/i, ".webp$2");
+  return converted !== url ? converted : null;
+}
+
+
+function ResponsiveImage({ src, alt = "", className, loading = "lazy", width, height }) {
+  const webp = toWebpUrl(src);
+
+  if (!webp) {
+    return <img src={src} alt={alt} className={className} loading={loading} width={width} height={height} />;
+  }
+
   return (
-    <span className="card-star-row" aria-label={`${value} out of 5 stars`}>
-      {Array.from({ length: full }).map((_, i) => (
-        <Star key={`f${i}`} size={size} className="card-star filled" fill="currentColor" strokeWidth={0} />
-      ))}
-      {Array.from({ length: empty }).map((_, i) => (
-        <Star key={`e${i}`} size={size} className="card-star empty" fill="none" strokeWidth={1.5} />
-      ))}
-    </span>
+    <picture>
+      <source srcSet={webp} type="image/webp" />
+      <img src={src} alt={alt} className={className} loading={loading} width={width} height={height} />
+    </picture>
   );
 }
+
+export { ResponsiveImage };
 
 function BusinessCard({ business }) {
   return (
     <Link to={`/businesses/${business.id}`} className="business-card-link">
       <article className="business-card">
-        {/* Thumbnail — first gallery image */}
+        {/* Thumbnail — first gallery image with WebP source */}
         {business.image_urls?.[0] && (
           <div className="business-card-thumb">
-            <img src={business.image_urls[0]} alt="" loading="lazy" />
+            <ResponsiveImage src={business.image_urls[0]} alt="" loading="lazy" />
           </div>
         )}
 
         <div className="business-card-body">
-          {/* Rating row */}
           {business.avg_rating > 0 && (
             <div className="business-card-rating">
-              <StarRow value={business.avg_rating} />
+              <Stars
+                value={business.avg_rating}
+                size={12}
+                filled="card-star filled"
+                empty="card-star empty"
+              />
               <span className="rating-score">{business.avg_rating.toFixed(1)}</span>
               {business.review_count > 0 && (
                 <span className="rating-count">({business.review_count})</span>
@@ -45,22 +61,18 @@ function BusinessCard({ business }) {
             </div>
           )}
 
-          {/* Name */}
           <h3 className="business-card-name">{business.name}</h3>
 
-          {/* Description */}
           {business.short_description && (
             <p className="business-card-desc">{business.short_description}</p>
           )}
 
-          {/* Footer meta */}
           <div className="business-card-footer">
             {business.domain_slug && (
               <span className="business-card-domain">
                 {business.domain_slug.replace(/_/g, " ")}
               </span>
             )}
-
             <div className="business-card-badges">
               {business.is_verified && (
                 <span className="badge badge-verified">Verified</span>
@@ -76,4 +88,4 @@ function BusinessCard({ business }) {
   );
 }
 
-export default BusinessCard;
+export default memo(BusinessCard);

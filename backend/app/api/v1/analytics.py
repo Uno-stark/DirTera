@@ -10,7 +10,12 @@ from fastapi.responses import StreamingResponse
 from app.core.deps import CurrentUser, DBSession
 from app.models.user import User
 from app.models.website import Website
-from app.schemas.analytics import AggregatedStats, ClickStatResponse
+from app.schemas.analytics import (
+    AggregatedStats,
+    BulkStatsRequest,
+    BulkStatsResponse,
+    ClickStatResponse,
+)
 from app.services import analytics_service, website_service
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
@@ -28,6 +33,27 @@ def _check_access(website: Website, user: User) -> None:
 
 
 # ── Stats (time-series) ───────────────────────────────────────────────────────
+
+@router.post(
+    "/bulk-stats",
+    response_model=BulkStatsResponse,
+    summary="Bulk click totals for a list of websites — admin only",
+)
+async def get_bulk_stats(
+    body: BulkStatsRequest,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required.",
+        )
+    totals = await analytics_service.get_bulk_click_totals(
+        body.website_ids, db, body.start_date, body.end_date
+    )
+    return BulkStatsResponse(stats=totals)
+
 
 @router.get(
     "/{website_id}/stats",
