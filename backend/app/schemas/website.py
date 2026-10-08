@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 import re
 
 from app.models.website import WebsiteStatus
@@ -88,6 +88,7 @@ class WebsitePublicOut(BaseModel):
     short_description: str
     full_description: Optional[str] = None
     logo_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     image_urls: List[str] = []
     category_slug: Optional[str] = None
     domain_slug: Optional[str] = None
@@ -103,6 +104,12 @@ class WebsitePublicOut(BaseModel):
     @classmethod
     def _parse_image_urls(cls, v):
         return _split_image_urls(v)
+
+    @model_validator(mode="after")
+    def _set_thumbnail_url(self) -> WebsitePublicOut:
+        if not self.thumbnail_url and self.image_urls:
+            self.thumbnail_url = self.image_urls[0]
+        return self
 
 
 class WebsitePublicDetailOut(WebsitePublicOut):
@@ -135,6 +142,7 @@ class WebsiteOut(BaseModel):
     short_description: str
     full_description: Optional[str] = None
     logo_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     image_urls: List[str] = []
     category_slug: Optional[str] = None
     domain_slug: Optional[str] = None
@@ -156,6 +164,12 @@ class WebsiteOut(BaseModel):
     @classmethod
     def _parse_image_urls(cls, v):
         return _split_image_urls(v)
+
+    @model_validator(mode="after")
+    def _set_thumbnail_url(self) -> WebsiteOut:
+        if not self.thumbnail_url and self.image_urls:
+            self.thumbnail_url = self.image_urls[0]
+        return self
 
 
 class WebsiteDetailOut(WebsiteOut):
@@ -201,4 +215,5 @@ class ImageUploadResponse(BaseModel):
     slot: str
     url: str
     logo_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     image_urls: List[str] = []
