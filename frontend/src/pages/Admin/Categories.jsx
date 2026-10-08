@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Check, Minus, Trash2 } from "lucide-react";
 import api from "../../api/client";
 
+const CONFIRM_DELETE = (name) =>
+  window.confirm(`Deactivate "${name}"? It will be hidden from public listings.`);
+
 const EMPTY_FORM = {
   slug: "",
   name: "",
@@ -39,7 +42,7 @@ function Categories() {
     setError("");
 
     try {
-      const { data } = await api.get("/api/v1/categories");
+      const { data } = await api.get("/api/v1/categories", { params: { active_only: false } });
       setCategories(data.items ?? data);
     } catch (err) {
       setError(
@@ -344,6 +347,16 @@ function Categories() {
                             : "Delete"}
                         </button>
                       </div>
+                    </td>
+                    <td>
+                      <button
+                        className="admin-button-danger"
+                        disabled={!cat.is_active || deletingSlug === cat.slug}
+                        onClick={() => handleDelete(cat)}
+                        title={cat.is_active ? "Deactivate" : "Already inactive"}
+                      >
+                        {deletingSlug === cat.slug ? "…" : cat.is_active ? "Deactivate" : "Inactive"}
+                      </button>
                     </td>
                   </tr>
                 ))}

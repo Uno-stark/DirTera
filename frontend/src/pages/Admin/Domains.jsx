@@ -30,6 +30,12 @@ function Domains() {
   const [updating, setUpdating] = useState(false);
   const [editError, setEditError] = useState("");
 
+  // delete modal
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [hardDelete, setHardDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
   const loadDomains = async () => {
     setIsLoading(true);
     setError("");
@@ -129,6 +135,36 @@ function Domains() {
       setEditError(err.response?.data?.detail || "Failed to update domain.");
     } finally {
       setUpdating(false);
+    }
+  };
+
+  // --- Delete ---
+  const openDelete = (domain) => {
+    setDeleteTarget(domain);
+    setHardDelete(false);
+    setDeleteError("");
+  };
+
+  const confirmDelete = async (e) => {
+    e.preventDefault();
+    setDeleting(true);
+    setDeleteError("");
+    setSuccess("");
+    try {
+      await api.delete(`/api/v1/domains/${deleteTarget.slug}`, {
+        params: { hard: hardDelete },
+      });
+      setSuccess(
+        hardDelete
+          ? `Domain "${deleteTarget.name}" permanently deleted.`
+          : `Domain "${deleteTarget.name}" deactivated.`
+      );
+      setDeleteTarget(null);
+      loadDomains();
+    } catch (err) {
+      setDeleteError(err.response?.data?.detail || "Failed to delete domain.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -264,9 +300,17 @@ function Domains() {
                     <td>{d.sort_order}</td>
                     <td>{d.is_active ? <Check size={14} /> : <Minus size={14} color="#9ca3af" />}</td>
                     <td>
-                      <button className="admin-button-sm" onClick={() => openEdit(d)}>
-                        Edit
-                      </button>
+                      <div className="admin-action-row">
+                        <button className="admin-button-sm" onClick={() => openEdit(d)}>
+                          Edit
+                        </button>
+                        <button
+                          className="admin-button-sm admin-button-red"
+                          onClick={() => openDelete(d)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -327,6 +371,46 @@ function Domains() {
                   type="button"
                   className="admin-button-outline"
                   onClick={() => setEditTarget(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Delete modal */}
+      {deleteTarget && (
+        <div className="admin-modal-backdrop" onClick={() => setDeleteTarget(null)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Delete "{deleteTarget.name}"</h2>
+            <form className="admin-form" onSubmit={confirmDelete}>
+              <p style={{ margin: "0 0 16px", color: "#374151" }}>
+                {hardDelete
+                  ? "This will permanently remove the domain from the database."
+                  : "This will deactivate the domain. Existing websites keep their reference."}
+              </p>
+              <label className="admin-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={hardDelete}
+                  onChange={(e) => setHardDelete(e.target.checked)}
+                />
+                Hard delete (permanent)
+              </label>
+              {deleteError && <p className="admin-error">{deleteError}</p>}
+              <div className="admin-form-row">
+                <button
+                  type="submit"
+                  className="admin-button admin-button-red-solid"
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting…" : hardDelete ? "Delete permanently" : "Deactivate"}
+                </button>
+                <button
+                  type="button"
+                  className="admin-button-outline"
+                  onClick={() => setDeleteTarget(null)}
                 >
                   Cancel
                 </button>
