@@ -17,7 +17,7 @@ function isFresh(entry) {
 
 // ─── Axios instance ──────────────────────────────────────────────────────────
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000",
+  baseURL: import.meta.env.VITE_API_URL || "",
   headers: { "Content-Type": "application/json" },
   timeout: 15_000,   // 15 s hard timeout — fail fast instead of hanging forever
 });

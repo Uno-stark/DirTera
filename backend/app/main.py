@@ -3,11 +3,12 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend
 from slowapi import _rate_limit_exceeded_handler
@@ -134,6 +135,32 @@ def create_app() -> FastAPI:
     @app.get("/health", tags=["Health"], include_in_schema=False)
     async def health():
         return {"status": "ok", "version": settings.APP_VERSION}
+
+        # ── React/Vite frontend ──────────────────────────────────────────────────────
+    frontend_dist = (
+        Path(__file__).resolve().parents[2] / "frontend" / "dist"
+    )
+
+    if frontend_dist.exists():
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def serve_frontend(full_path: str):
+            # Never let the SPA fallback swallow unknown API requests.
+            if full_path.startswith("api/"):
+                return JSONResponse(
+                    status_code=404,
+                    content={"detail": "Not Found"},
+                )
+
+            requested_file = frontend_dist / full_path
+
+            if requested_file.is_file():
+                return FileResponse(requested_file)
+
+            # React Router fallback:
+            # /login, /dashboard, /admin, etc. all receive index.html.
+            return FileResponse(frontend_dist / "index.html")
+
 
     return app
 
