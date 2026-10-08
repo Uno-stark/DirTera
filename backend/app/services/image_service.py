@@ -4,7 +4,9 @@ Image upload service — Supabase Storage backend.
 
 from __future__ import annotations
 
+import asyncio
 import io
+import logging
 import mimetypes
 from typing import Literal
 
@@ -13,11 +15,13 @@ from PIL import Image
 
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
 # Allowed input MIME types
 _ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 # Image slot type
-ImageSlot = Literal["logo", "img_0", "img_1", "img_2"]
+ImageSlot = Literal["logo", "thumbnail", "img_0", "img_1", "img_2"]
 
 
 def _get_supabase_client():
@@ -50,42 +54,28 @@ def _validate_size(data: bytes, limit_mb: float) -> None:
 
 
 def _compress(data: bytes) -> bytes:
-    
     try:
         img = Image.open(io.BytesIO(data))
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Could not read image file. Please upload a valid image.",
+            detail=f"Could not read image file: {exc}. Please upload a valid image.",
         )
 
-    # Strip EXIF / metadata
-    img_clean = Image.new(img.mode, img.size)
-    img_clean.putdata(list(img.getdata()))
-
-    # Convert RGBA → RGB for WebP (handles PNG with transparency)
-    if img_clean.mode in ("RGBA", "P"):
-        bg = Image.new("RGB", img_clean.size, (255, 255, 255))
-        if img_clean.mode == "P":
-            img_clean = img_clean.convert("RGBA")
-        bg.paste(img_clean, mask=img_clean.split()[3] if img_clean.mode == "RGBA" else None)
-        img_clean = bg
-    elif img_clean.mode != "RGB":
-        img_clean = img_clean.convert("RGB")
+    # Convert modes properly while preserving transparency for WebP
+    if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+        img = img.convert("RGBA")
+    elif img.mode != "RGB":
+        img = img.convert("RGB")
 
     # Resize: cap longest side at IMAGE_MAX_DIMENSION
     max_dim = settings.IMAGE_MAX_DIMENSION
-    w, h = img_clean.size
-    if w > max_dim or h > max_dim:
-        ratio = min(max_dim / w, max_dim / h)
-        img_clean = img_clean.resize(
-            (int(w * ratio), int(h * ratio)),
-            Image.LANCZOS,
-        )
+    if max(img.size) > max_dim:
+        img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
 
-    # Encode as WebP
+    # Encode as WebP (strips EXIF automatically when not explicitly passed)
     buf = io.BytesIO()
-    img_clean.save(buf, format="WEBP", quality=settings.IMAGE_WEBP_QUALITY, method=4)
+    img.save(buf, format="WEBP", quality=settings.IMAGE_WEBP_QUALITY, method=4)
     return buf.getvalue()
 
 
@@ -95,23 +85,20 @@ async def upload_image(
     slot: ImageSlot,
     is_logo: bool = False,
 ) -> str:
-
     _validate_mime(file)
 
     raw = await file.read()
     limit = settings.MAX_LOGO_SIZE_MB if is_logo else settings.MAX_IMAGE_SIZE_MB
     _validate_size(raw, limit)
 
-    compressed = _compress(raw)
+    compressed = await asyncio.to_thread(_compress, raw)
 
     storage_path = f"{website_id}/{slot}.webp"
     bucket = settings.SUPABASE_STORAGE_BUCKET
 
-    client = _get_supabase_client()
-    storage = client.storage.from_(bucket)
-
-    # Upsert — overwrite if the slot already exists
-    try:
+    def _do_upload() -> None:
+        client = _get_supabase_client()
+        storage = client.storage.from_(bucket)
         storage.upload(
             path=storage_path,
             file=compressed,
@@ -120,14 +107,26 @@ async def upload_image(
                 "upsert": "true",
             },
         )
+
+    try:
+        await asyncio.to_thread(_do_upload)
+    except HTTPException:
+        raise
     except Exception as exc:
+        logger.exception(
+            "Storage upload failed for website_id=%s, slot=%s, path=%s: %s",
+            website_id,
+            slot,
+            storage_path,
+            exc,
+        )
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Storage upload failed: {exc}",
         )
 
     # Build public URL
-    public_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/{bucket}/{storage_path}"
+    public_url = f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{bucket}/{storage_path}"
     return public_url
 
 
@@ -135,24 +134,32 @@ async def delete_image(website_id: str, slot: ImageSlot) -> None:
     """Remove a single image slot from Supabase Storage."""
     storage_path = f"{website_id}/{slot}.webp"
     bucket = settings.SUPABASE_STORAGE_BUCKET
-    client = _get_supabase_client()
-    try:
-        client.storage.from_(bucket).remove([storage_path])
-    except Exception:
-        pass  
+
+    def _do_remove() -> None:
+        try:
+            client = _get_supabase_client()
+            client.storage.from_(bucket).remove([storage_path])
+        except Exception as exc:
+            logger.warning("Failed to delete image %s from storage: %s", storage_path, exc)
+
+    await asyncio.to_thread(_do_remove)
 
 
 async def delete_all_website_images(website_id: str) -> None:
-    
     bucket = settings.SUPABASE_STORAGE_BUCKET
     paths = [
         f"{website_id}/logo.webp",
+        f"{website_id}/thumbnail.webp",
         f"{website_id}/img_0.webp",
         f"{website_id}/img_1.webp",
         f"{website_id}/img_2.webp",
     ]
-    client = _get_supabase_client()
-    try:
-        client.storage.from_(bucket).remove(paths)
-    except Exception:
-        pass
+
+    def _do_remove_all() -> None:
+        try:
+            client = _get_supabase_client()
+            client.storage.from_(bucket).remove(paths)
+        except Exception as exc:
+            logger.warning("Failed to delete website images for %s: %s", website_id, exc)
+
+    await asyncio.to_thread(_do_remove_all)
