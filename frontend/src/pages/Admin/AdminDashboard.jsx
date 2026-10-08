@@ -37,48 +37,75 @@ function StatCard({ label, value, icon: Icon, highlight, onClick }) {
 }
 
 function ClickBarChart({ data }) {
-  const W = 900, H = 240, padL = 48, padR = 16, padT = 16, padB = 48;
+  const hasData = data.some((d) => d.clicks > 0);
+  const W = 900, H = 220, padL = 44, padR = 12, padT = 12, padB = 40;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
   const maxClicks = Math.max(...data.map((d) => d.clicks), 1);
-  const barW = Math.max(innerW / data.length - 2, 2);
+  const barW = Math.max(innerW / data.length - 1.5, 1.5);
   const yTicks = 4;
+
+  // Show every Nth label to avoid crowding
+  const labelEvery = data.length <= 14 ? 1 : data.length <= 31 ? 3 : 7;
+
+  if (!hasData) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 140, color: "#9ca3af", gap: 8 }}>
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-6"/></svg>
+        <span style={{ fontSize: 14 }}>No click data for this period</span>
+      </div>
+    );
+  }
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", overflow: "visible" }}>
+      {/* Y gridlines + labels */}
       {Array.from({ length: yTicks + 1 }, (_, i) => {
         const val = Math.round((maxClicks / yTicks) * i);
         const y = padT + innerH - (i / yTicks) * innerH;
         return (
           <g key={i}>
-            <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="#e5e7eb" strokeWidth="1" />
+            <line x1={padL} x2={W - padR} y1={y} y2={y} stroke={i === 0 ? "#d1d5db" : "#f3f4f6"} strokeWidth="1" />
             <text x={padL - 6} y={y + 4} textAnchor="end" fontSize="11" fill="#9ca3af">{val}</text>
           </g>
         );
       })}
+      {/* Bars */}
       {data.map((d, i) => {
-        const barH = Math.max((d.clicks / maxClicks) * innerH, 1);
-        const x = padL + i * (innerW / data.length) + 1;
-        const y = padT + innerH - (d.clicks > 0 ? (d.clicks / maxClicks) * innerH : 0);
+        const barH = Math.max((d.clicks / maxClicks) * innerH, d.clicks > 0 ? 2 : 0);
+        const x = padL + i * (innerW / data.length) + 0.75;
+        const y = padT + innerH - barH;
+        const showLabel = i % labelEvery === 0;
+        const fmt = new Date(d.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
         return (
           <g key={d.date}>
-            <rect x={x} y={y} width={barW} height={barH}
-              fill={d.clicks > 0 ? "#2563eb" : "#e5e7eb"} rx="2">
-              <title>{d.date}: {d.clicks} click{d.clicks !== 1 ? "s" : ""}</title>
+            <rect
+              x={x} y={barH > 0 ? y : padT + innerH - 1}
+              width={barW} height={Math.max(barH, barH > 0 ? barH : 0)}
+              fill={d.clicks > 0 ? "#2563eb" : "#f3f4f6"} rx="2"
+              style={{ cursor: "default" }}
+            >
+              <title>{fmt}: {d.clicks.toLocaleString()} click{d.clicks !== 1 ? "s" : ""}</title>
             </rect>
-            {i % 5 === 0 && (
+            {/* Hover highlight bar */}
+            <rect x={x} y={padT} width={barW} height={innerH} fill="transparent" style={{ cursor: "default" }}>
+              <title>{fmt}: {d.clicks.toLocaleString()} click{d.clicks !== 1 ? "s" : ""}</title>
+            </rect>
+            {showLabel && (
               <text
-                x={x + barW / 2} y={H - padB + 14}
-                textAnchor="middle" fontSize="10" fill="#6b7280"
-                transform={`rotate(-35, ${x + barW / 2}, ${H - padB + 14})`}
+                x={x + barW / 2} y={H - padB + 13}
+                textAnchor="middle" fontSize="10" fill="#9ca3af"
+                transform={data.length > 20 ? `rotate(-40, ${x + barW / 2}, ${H - padB + 13})` : undefined}
               >
-                {d.date.slice(5)}
+                {fmt}
               </text>
             )}
           </g>
         );
       })}
+      {/* X axis */}
       <line x1={padL} x2={W - padR} y1={padT + innerH} y2={padT + innerH} stroke="#d1d5db" strokeWidth="1" />
+      {/* Y axis */}
       <line x1={padL} x2={padL} y1={padT} y2={padT + innerH} stroke="#d1d5db" strokeWidth="1" />
     </svg>
   );
@@ -224,30 +251,63 @@ function AdminDashboard() {
 
         {/* Clicks chart */}
         <div className="admin-card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#111827" }}>Total Clicks</h2>
-            {!clicksLoading && !clicksError && (
-              <span style={{ fontSize: 13, color: "#6b7280" }}>Total: <strong>{clicksTotal.toLocaleString()}</strong></span>
-            )}
-          </div>
-          {/* Date filter */}
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 12, marginBottom: 16 }}>
+          {/* Header row */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <div>
-              <label style={{ display: "block", fontSize: 17, color: "#6b7280", marginBottom: 6 }}>From</label>
-              <input type="date" className="admin-input" value={filterStart} onChange={(e) => setFilterStart(e.target.value)} />
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#111827" }}>Website Clicks</h2>
+              {!clicksLoading && !clicksError && (
+                <span style={{ fontSize: 13, color: "#6b7280", marginTop: 3, display: "block" }}>
+                  {clicksTotal.toLocaleString()} total · {filterPreset === "custom" ? `${filterStart} → ${filterEnd}` : `Last ${filterPreset} days`}
+                </span>
+              )}
             </div>
-            <div>
-              <label style={{ display: "block", fontSize: 17, color: "#6b7280", marginBottom: 6 }}>To</label>
-              <input type="date" className="admin-input" value={filterEnd} onChange={(e) => setFilterEnd(e.target.value)} />
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              {/* Quick filter pills */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {[["7", "7 Days"], ["30", "30 Days"], ["90", "90 Days"], ["custom", "Custom"]].map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => applyPreset(val)}
+                    style={{
+                      padding: "5px 14px", borderRadius: 99, fontSize: 13, fontWeight: 500,
+                      cursor: "pointer", transition: "all 0.15s",
+                      border: filterPreset === val ? "none" : "1px solid #e5e7eb",
+                      background: filterPreset === val ? "#2563eb" : "white",
+                      color: filterPreset === val ? "white" : "#374151",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <button
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#2563eb", padding: 0, fontWeight: 500, whiteSpace: "nowrap" }}
+                onClick={() => navigate("/admin/analytics")}
+              >
+                View Details →
+              </button>
             </div>
-            <button
-              className="admin-button-outline"
-              onClick={() => { setFilterStart(defaultStart); setFilterEnd(defaultEnd); }}
-            >
-              Reset
-            </button>
           </div>
-          {clicksLoading && <p style={{ color: "#6b7280", fontSize: 14 }}>Loading chart…</p>}
+
+          {/* Custom date range — only visible when Custom is selected */}
+          {filterPreset === "custom" && (
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 12, marginBottom: 16, padding: "12px 16px", background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+              <div>
+                <label style={{ display: "block", fontSize: 13, color: "#6b7280", marginBottom: 4 }}>From</label>
+                <input type="date" className="admin-input" value={filterStart} onChange={(e) => setFilterStart(e.target.value)} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 13, color: "#6b7280", marginBottom: 4 }}>To</label>
+                <input type="date" className="admin-input" value={filterEnd} onChange={(e) => setFilterEnd(e.target.value)} />
+              </div>
+            </div>
+          )}
+
+          {clicksLoading && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 140, color: "#9ca3af", fontSize: 14 }}>
+              Loading chart…
+            </div>
+          )}
           {clicksError && <p className="admin-error">{clicksError}</p>}
           {!clicksLoading && !clicksError && <ClickBarChart data={clickData} />}
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+ï»¿import { useEffect, useState } from "react";
 import { Check, Minus, Trash2 } from "lucide-react";
 import api from "../../api/client";
 
@@ -25,7 +25,7 @@ function Domains() {
   const [createError, setCreateError] = useState("");
 
   const [editTarget, setEditTarget] = useState(null);
-  const [editForm, setEditForm] = useState({ icon: "", sort_order: 0, category_slug: "" });
+  const [editForm, setEditForm] = useState({ name: "", description: "", icon: "", sort_order: 0, category_slug: "", is_active: true });
   const [updating, setUpdating] = useState(false);
   const [editError, setEditError] = useState("");
 
@@ -98,13 +98,20 @@ function Domains() {
 
   const openEdit = (domain) => {
     setEditTarget(domain);
-    setEditForm({ icon: domain.icon ?? "", sort_order: domain.sort_order ?? 0, category_slug: domain.category_slug ?? "" });
+    setEditForm({
+      name: domain.name ?? "",
+      description: domain.description ?? "",
+      icon: domain.icon ?? "",
+      sort_order: domain.sort_order ?? 0,
+      category_slug: domain.category_slug ?? "",
+      is_active: domain.is_active ?? true,
+    });
     setEditError("");
   };
 
   const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setEditForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
   const handleUpdate = async (e) => {
@@ -114,11 +121,14 @@ function Domains() {
     setSuccess("");
     try {
       await api.patch(`/api/v1/domains/${editTarget.slug}`, {
+        name: editForm.name,
+        description: editForm.description,
         icon: editForm.icon || null,
         sort_order: Number(editForm.sort_order),
         category_slug: editForm.category_slug || null,
+        is_active: editForm.is_active,
       });
-      setSuccess(`Domain "${editTarget.name}" updated.`);
+      setSuccess(`Domain "${editForm.name}" updated.`);
       setEditTarget(null);
       await loadDomains();
     } catch (err) {
@@ -180,7 +190,7 @@ function Domains() {
                 <label>Sort order<input name="sort_order" type="number" value={createForm.sort_order} onChange={handleCreateChange} /></label>
                 <label>Category
                   <select name="category_slug" className="admin-select" value={createForm.category_slug} onChange={handleCreateChange}>
-                    <option value="">— none —</option>
+                    <option value="">ï¿½ none ï¿½</option>
                     {categories.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
                   </select>
                 </label>
@@ -190,7 +200,7 @@ function Domains() {
                 </label>
               </div>
               {createError && <p className="admin-error">{createError}</p>}
-              <button type="submit" className="admin-button" disabled={creating}>{creating ? "Creating…" : "Create Domain"}</button>
+              <button type="submit" className="admin-button" disabled={creating}>{creating ? "Creatingï¿½" : "Create Domain"}</button>
             </form>
           </>
         )}
@@ -198,7 +208,7 @@ function Domains() {
 
       <section className="admin-card">
         <h2>All Domains</h2>
-        {isLoading && <p>Loading…</p>}
+        {isLoading && <p>Loadingï¿½</p>}
         {!isLoading && domains.length === 0 && <p className="admin-empty">No domains yet.</p>}
         {!isLoading && domains.length > 0 && (
           <div className="admin-table-wrapper">
@@ -212,7 +222,7 @@ function Domains() {
                     <td>{d.icon}</td>
                     <td><code>{d.slug}</code></td>
                     <td>{d.name}</td>
-                    <td>{d.category_slug ?? "—"}</td>
+                    <td>{d.category_slug ?? "ï¿½"}</td>
                     <td>{d.sort_order}</td>
                     <td>{d.is_active ? <Check size={14} /> : <Minus size={14} color="#9ca3af" />}</td>
                     <td>
@@ -242,17 +252,28 @@ function Domains() {
           <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
             <h2>Edit "{editTarget.name}"</h2>
             <form className="admin-form" onSubmit={handleUpdate}>
-              <label>Icon<input name="icon" value={editForm.icon} onChange={handleEditChange} placeholder="e.g. box" /></label>
-              <label>Sort order<input name="sort_order" type="number" value={editForm.sort_order} onChange={handleEditChange} /></label>
+              <div className="admin-form-row">
+                <label>Name<input name="name" value={editForm.name} onChange={handleEditChange} placeholder="e.g. Courier Service" required /></label>
+                <label>Icon<input name="icon" value={editForm.icon} onChange={handleEditChange} placeholder="e.g. box" /></label>
+              </div>
+              <label>Description<input name="description" value={editForm.description} onChange={handleEditChange} placeholder="Short description" /></label>
+              <div className="admin-form-row">
+                <label>Sort order<input name="sort_order" type="number" value={editForm.sort_order} onChange={handleEditChange} /></label>
               <label>Category
                 <select name="category_slug" className="admin-select" value={editForm.category_slug} onChange={handleEditChange}>
-                  <option value="">— none —</option>
+                  <option value="">ï¿½ none ï¿½</option>
                   {categories.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
                 </select>
+                </label>
+                <label className="admin-checkbox-label">
+                  <input name="is_active" type="checkbox" checked={editForm.is_active} onChange={handleEditChange} />
+                  Active
+                </label>
+              </div>
               </label>
               {editError && <p className="admin-error">{editError}</p>}
               <div className="admin-form-row">
-                <button type="submit" className="admin-button" disabled={updating}>{updating ? "Saving…" : "Save changes"}</button>
+                <button type="submit" className="admin-button" disabled={updating}>{updating ? "Savingï¿½" : "Save changes"}</button>
                 <button type="button" className="admin-button-outline" onClick={() => setEditTarget(null)}>Cancel</button>
               </div>
             </form>
@@ -274,7 +295,7 @@ function Domains() {
               </label>
               {deleteError && <p className="admin-error">{deleteError}</p>}
               <div className="admin-form-row">
-                <button type="submit" className="admin-button admin-button-red-solid" disabled={deleting}>{deleting ? "Deleting…" : hardDelete ? "Delete permanently" : "Deactivate"}</button>
+                <button type="submit" className="admin-button admin-button-red-solid" disabled={deleting}>{deleting ? "Deletingï¿½" : hardDelete ? "Delete permanently" : "Deactivate"}</button>
                 <button type="button" className="admin-button-outline" onClick={() => setDeleteTarget(null)}>Cancel</button>
               </div>
             </form>

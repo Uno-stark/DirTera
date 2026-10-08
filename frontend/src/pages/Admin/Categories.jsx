@@ -30,8 +30,11 @@ function Categories() {
   // Edit modal
   const [editTarget, setEditTarget] = useState(null);
   const [editForm, setEditForm] = useState({
+    name: "",
+    description: "",
     icon: "",
     sort_order: 0,
+    is_active: true,
   });
   const [updating, setUpdating] = useState(false);
   const [editError, setEditError] = useState("");
@@ -114,45 +117,42 @@ function Categories() {
 
   const openEdit = (cat) => {
     setEditTarget(cat);
-
     setEditForm({
+      name: cat.name ?? "",
+      description: cat.description ?? "",
       icon: cat.icon ?? "",
       sort_order: cat.sort_order ?? 0,
+      is_active: cat.is_active ?? true,
     });
-
     setEditError("");
   };
 
   const handleEditChange = (e) => {
-    const { name, value } = e.target;
-
+    const { name, value, type, checked } = e.target;
     setEditForm((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
-
     setUpdating(true);
     setEditError("");
     setSuccess("");
-
     try {
       await api.patch(`/api/v1/categories/${editTarget.slug}`, {
+        name: editForm.name,
+        description: editForm.description,
         icon: editForm.icon,
         sort_order: Number(editForm.sort_order),
+        is_active: editForm.is_active,
       });
-
-      setSuccess(`Category "${editTarget.name}" updated.`);
+      setSuccess(`Category "${editForm.name}" updated.`);
       setEditTarget(null);
-
       await loadCategories();
     } catch (err) {
-      setEditError(
-        err.response?.data?.detail || "Failed to update category."
-      );
+      setEditError(err.response?.data?.detail || "Failed to update category.");
     } finally {
       setUpdating(false);
     }
@@ -431,44 +431,68 @@ function Categories() {
             <h2>Edit "{editTarget.name}"</h2>
 
             <form className="admin-form" onSubmit={handleUpdate}>
+              <div className="admin-form-row">
+                <label>
+                  Name
+                  <input
+                    name="name"
+                    value={editForm.name}
+                    onChange={handleEditChange}
+                    placeholder="e.g. Logistics & Delivery"
+                    required
+                  />
+                </label>
+                <label>
+                  Icon
+                  <input
+                    name="icon"
+                    value={editForm.icon}
+                    onChange={handleEditChange}
+                    placeholder="e.g. truck"
+                  />
+                </label>
+              </div>
+
               <label>
-                Icon
+                Description
                 <input
-                  name="icon"
-                  value={editForm.icon}
+                  name="description"
+                  value={editForm.description}
                   onChange={handleEditChange}
-                  placeholder="e.g. laptop"
+                  placeholder="Short description"
                 />
               </label>
 
-              <label>
-                Sort order
-                <input
-                  name="sort_order"
-                  type="number"
-                  value={editForm.sort_order}
-                  onChange={handleEditChange}
-                />
-              </label>
+              <div className="admin-form-row">
+                <label>
+                  Sort order
+                  <input
+                    name="sort_order"
+                    type="number"
+                    value={editForm.sort_order}
+                    onChange={handleEditChange}
+                  />
+                </label>
+                <label className="admin-checkbox-label">
+                  <input
+                    name="is_active"
+                    type="checkbox"
+                    checked={editForm.is_active}
+                    onChange={handleEditChange}
+                  />
+                  Active
+                </label>
+              </div>
 
               {editError && (
                 <p className="admin-error">{editError}</p>
               )}
 
               <div className="admin-form-row">
-                <button
-                  type="submit"
-                  className="admin-button"
-                  disabled={updating}
-                >
+                <button type="submit" className="admin-button" disabled={updating}>
                   {updating ? "Saving…" : "Save changes"}
                 </button>
-
-                <button
-                  type="button"
-                  className="admin-button-outline"
-                  onClick={() => setEditTarget(null)}
-                >
+                <button type="button" className="admin-button-outline" onClick={() => setEditTarget(null)}>
                   Cancel
                 </button>
               </div>
