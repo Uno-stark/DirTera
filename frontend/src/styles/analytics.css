@@ -1,0 +1,131 @@
+
+.an-page {
+  min-height: 100vh;
+  background: #f9fafb;
+}
+
+.an-container {
+  width: 520px;
+  max-width: calc(100% - 80px);
+  margin: 0 auto;
+  padding: 40px 0 80px;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+.an-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  text-decoration: none;
+  transition: color 0.12s;
+}
+.an-back:hover { color: #111827; }
+
+.an-header { margin-bottom: 28px; }
+.an-header h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.4px;
+}
+.an-header p {
+  margin: 0;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* ── Export card ───────────────────────────────────────────────────────────── */
+.an-export-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.an-export-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.an-export-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.an-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #111827;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+.an-select:focus { border-color: #111827; background: #fff; }
+
+.an-export-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #111827;
+  color: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s;
+  align-self: flex-start;
+}
+.an-export-btn:hover:not(:disabled) { background: #1f2937; }
+.an-export-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── States ────────────────────────────────────────────────────────────────── */
+.an-state {
+  padding: 48px 24px;
+  text-align: center;
+  font-size: 14px;
+  color: #9ca3af;
+}
+.an-state--error {
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 13px;
+  text-align: left;
+}
+
+.an-empty {
+  padding: 40px 24px;
+  text-align: center;
+  background: #ffffff;
+  border: 1px dashed #d1d5db;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .an-container { max-width: calc(100% - 32px); padding: 28px 0 60px; }
+  .an-export-btn { width: 100%; }
+}

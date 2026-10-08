@@ -6,9 +6,11 @@ from app.models.user import User
 from app.models.category import Category, Domain
 from app.models.website import Website, WebsiteStatus
 from app.models.click import ClickEvent
-from app.models.subscription import Subscription, SubscriptionPlan, SubscriptionStatus
+from app.models.plan_config import SubscriptionPlanConfig
+from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.review import Review
 from app.models.notification import Notification
+from app.models.token_blocklist import TokenBlocklist
 
 __all__ = [
     "User",
@@ -17,9 +19,10 @@ __all__ = [
     "Website",
     "WebsiteStatus",
     "ClickEvent",
+    "SubscriptionPlanConfig",
     "Subscription",
-    "SubscriptionPlan",
     "SubscriptionStatus",
     "Review",
     "Notification",
+    "TokenBlocklist",
 ]

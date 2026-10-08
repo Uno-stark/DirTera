@@ -7,7 +7,7 @@ from sqlalchemy import Boolean, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.base import TimestampMixin, ULIDPrimaryKey
+from app.models.base import PgEnum, TimestampMixin, ULIDPrimaryKey
 
 
 class WebsiteStatus(str, enum.Enum):
@@ -30,8 +30,10 @@ class Website(ULIDPrimaryKey, TimestampMixin, Base):
     url: Mapped[str] = mapped_column(String(2048), nullable=False, unique=True)
     short_description: Mapped[str] = mapped_column(String(500), nullable=False)
     full_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    thumbnail_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # logo_url  — single logo image, stored in Supabase Storage
     logo_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # image_urls — up to 3 gallery/thumbnail images, comma-separated public URLs
+    image_urls: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # ── Classification — DB-managed slugs ─────────────────────────────────────
     # Soft FK: references categories.slug / domains.slug but no DB-level
@@ -54,7 +56,7 @@ class Website(ULIDPrimaryKey, TimestampMixin, Base):
 
     # ── Status & moderation ───────────────────────────────────────────────────
     status: Mapped[WebsiteStatus] = mapped_column(
-        Enum(WebsiteStatus), nullable=False, default=WebsiteStatus.PENDING, index=True
+        PgEnum(WebsiteStatus), default=WebsiteStatus.PENDING, index=True
     )
     rejection_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     reviewed_by_id: Mapped[Optional[str]] = mapped_column(

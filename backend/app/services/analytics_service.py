@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import Request
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.click import ClickEvent
@@ -52,13 +52,31 @@ async def get_click_stats(
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Website not found")
 
     now = datetime.now(timezone.utc)
-    if end_date is None:
-        end_date = now.date()
-    if start_date is None:
-        start_date = end_date - timedelta(days=29)
+    resolved_end = end_date if end_date is not None else now.date()
+    resolved_start = (
+        start_date
+        if start_date is not None
+        else (website.created_at.date() if website.created_at else date(2000, 1, 1))
+    )
 
-    start_dt = datetime.combine(start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
-    end_dt = datetime.combine(end_date, datetime.max.time()).replace(tzinfo=timezone.utc)
+    if resolved_start > resolved_end:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=f"start_date ({resolved_start}) must be on or before end_date ({resolved_end}).",
+        )
+
+    created_date = website.created_at.date() if website.created_at else date(2000, 1, 1)
+    if resolved_start < created_date:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"start_date ({resolved_start}) cannot be before the listing's "
+                f"creation date ({created_date})."
+            ),
+        )
+
+    start_dt = datetime.combine(resolved_start, datetime.min.time()).replace(tzinfo=timezone.utc)
+    end_dt   = datetime.combine(resolved_end,   datetime.max.time()).replace(tzinfo=timezone.utc)
 
     result = await db.execute(
         select(
@@ -77,8 +95,8 @@ async def get_click_stats(
 
     counts_by_day = {str(row.day): row.cnt for row in rows}
     data: List[ClickDataPoint] = []
-    current = start_date
-    while current <= end_date:
+    current = resolved_start
+    while current <= resolved_end:
         data.append(ClickDataPoint(date=current, clicks=counts_by_day.get(str(current), 0)))
         current += timedelta(days=1)
 
@@ -94,22 +112,24 @@ async def get_click_stats(
 async def get_aggregated_stats(website_id: str, db: AsyncSession) -> AggregatedStats:
     now = datetime.now(timezone.utc)
     today_start = datetime.combine(now.date(), datetime.min.time()).replace(tzinfo=timezone.utc)
-    week_start = today_start - timedelta(days=7)
+    week_start  = today_start - timedelta(days=7)
     month_start = today_start - timedelta(days=30)
+    epoch       = datetime(2000, 1, 1, tzinfo=timezone.utc)
 
-    async def _count(after: datetime) -> int:
-        r = await db.execute(
-            select(func.count(ClickEvent.id)).where(
+    # Single query — four conditional counts instead of four round-trips
+    counts_row = (
+        await db.execute(
+            select(
+                func.count(ClickEvent.id).label("total"),
+                func.count(case((ClickEvent.clicked_at >= today_start, 1))).label("today"),
+                func.count(case((ClickEvent.clicked_at >= week_start,  1))).label("last7"),
+                func.count(case((ClickEvent.clicked_at >= month_start, 1))).label("last30"),
+            ).where(
                 ClickEvent.website_id == website_id,
-                ClickEvent.clicked_at >= after,
+                ClickEvent.clicked_at >= epoch,
             )
         )
-        return r.scalar_one()
-
-    total  = await _count(datetime(2000, 1, 1, tzinfo=timezone.utc))
-    today  = await _count(today_start)
-    last7  = await _count(week_start)
-    last30 = await _count(month_start)
+    ).one()
 
     ref_result = await db.execute(
         select(ClickEvent.referrer, func.count(ClickEvent.id).label("cnt"))
@@ -130,13 +150,54 @@ async def get_aggregated_stats(website_id: str, db: AsyncSession) -> AggregatedS
     clicks_by_country = [{"country": r.country_code, "count": r.cnt} for r in country_result.all()]
 
     return AggregatedStats(
-        total_clicks=total,
-        clicks_today=today,
-        clicks_last_7_days=last7,
-        clicks_last_30_days=last30,
+        total_clicks=counts_row.total,
+        clicks_today=counts_row.today,
+        clicks_last_7_days=counts_row.last7,
+        clicks_last_30_days=counts_row.last30,
         top_referrers=top_referrers,
         clicks_by_country=clicks_by_country,
     )
+
+
+async def get_bulk_click_totals(
+    website_ids: list[str],
+    db: AsyncSession,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+) -> dict[str, int]:
+    """
+    Return {website_id: total_clicks} for every id in *website_ids*
+    using a single GROUP-BY query instead of one query per site.
+    """
+    if not website_ids:
+        return {}
+
+    now = datetime.now(timezone.utc)
+    resolved_end   = end_date   if end_date   is not None else now.date()
+    resolved_start = start_date if start_date is not None else date(2000, 1, 1)
+
+    start_dt = datetime.combine(resolved_start, datetime.min.time()).replace(tzinfo=timezone.utc)
+    end_dt   = datetime.combine(resolved_end,   datetime.max.time()).replace(tzinfo=timezone.utc)
+
+    result = await db.execute(
+        select(
+            ClickEvent.website_id,
+            func.count(ClickEvent.id).label("cnt"),
+        )
+        .where(
+            ClickEvent.website_id.in_(website_ids),
+            ClickEvent.clicked_at >= start_dt,
+            ClickEvent.clicked_at <= end_dt,
+        )
+        .group_by(ClickEvent.website_id)
+    )
+    rows = result.all()
+
+    # Seed every requested id with 0 so sites with no clicks still appear
+    totals: dict[str, int] = {wid: 0 for wid in website_ids}
+    for row in rows:
+        totals[row.website_id] = row.cnt
+    return totals
 
 
 async def export_stats_csv(website_id: str, db: AsyncSession) -> str:

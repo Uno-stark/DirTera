@@ -27,3 +27,7 @@ class ReviewOut(BaseModel):
     is_visible: bool
     created_at: datetime
     updated_at: datetime
+
+    # Denormalised author fields
+    author_name: Optional[str] = None
+    author_avatar_url: Optional[str] = None

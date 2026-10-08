@@ -184,3 +184,58 @@ async def validate_domain_slug(slug: str, db: AsyncSession) -> None:
             detail=f"'{slug}' is not a valid active domain slug. "
                    f"Call GET /domains to see available values.",
         )
+
+
+# ── Categories with embedded domains (nav mega-menu) ─────────────────────────
+
+async def list_categories_with_domains(db: AsyncSession) -> list:
+    """
+    Fetch all active categories and their active domains in two queries
+    (categories, then all matching domains), grouped in Python.
+    Returns list[CategoryWithDomainsOut] — ready for JSON serialisation.
+    """
+    from app.schemas.category import CategoryWithDomainsOut, DomainSlim
+
+    # 1. All active categories ordered for display
+    cats_result = await db.execute(
+        select(Category)
+        .where(Category.is_active == True)  # noqa: E712
+        .order_by(Category.sort_order, Category.name)
+    )
+    categories = cats_result.scalars().all()
+
+    if not categories:
+        return []
+
+    # 2. All active domains that belong to any of those categories — one query
+    cat_slugs = [c.slug for c in categories]
+    doms_result = await db.execute(
+        select(Domain)
+        .where(
+            Domain.is_active == True,  # noqa: E712
+            Domain.category_slug.in_(cat_slugs),
+        )
+        .order_by(Domain.sort_order, Domain.name)
+    )
+    domains = doms_result.scalars().all()
+
+    # 3. Group domains by category_slug in Python (O(n) — no extra queries)
+    from collections import defaultdict
+    domains_by_cat: dict[str, list] = defaultdict(list)
+    for dom in domains:
+        if dom.category_slug:
+            domains_by_cat[dom.category_slug].append(
+                DomainSlim.model_validate(dom)
+            )
+
+    # 4. Assemble response
+    return [
+        CategoryWithDomainsOut(
+            slug=cat.slug,
+            name=cat.name,
+            icon=cat.icon,
+            sort_order=cat.sort_order,
+            domains=domains_by_cat.get(cat.slug, []),
+        )
+        for cat in categories
+    ]

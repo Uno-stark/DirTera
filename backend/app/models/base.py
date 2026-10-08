@@ -1,15 +1,28 @@
-from __future__ import annotations
-
+import enum
 from datetime import datetime
+from typing import Any
 
-import ulid as ulid_lib
-from sqlalchemy import DateTime, String, func
+from ulid import ULID
+from sqlalchemy import DateTime, Enum, String, func
 from sqlalchemy.orm import Mapped, mapped_column
+
+
+class PgEnum(Enum):
+    """
+    SQLAlchemy Enum subclass that:
+    1. Uses enum values instead of member names for queries and inserts.
+    2. Defaults the PostgreSQL enum type name to the lowercase class name.
+    """
+
+    def __init__(self, enum_type: type[enum.Enum], **kw: Any) -> None:
+        kw.setdefault("name", enum_type.__name__.lower())
+        kw.setdefault("values_callable", lambda obj: [e.value for e in obj])
+        super().__init__(enum_type, **kw)
 
 
 def new_ulid() -> str:
     """Generate a new ULID string. Used as the default factory for all PKs."""
-    return str(ulid_lib.ULID())
+    return str(ULID())
 
 
 class ULIDPrimaryKey:
@@ -39,3 +52,4 @@ class TimestampMixin:
         onupdate=func.now(),
         nullable=False,
     )
+

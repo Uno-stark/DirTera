@@ -3,22 +3,24 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import decode_token
+from app.models.token_blocklist import TokenBlocklist
 from app.models.user import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+security = HTTPBearer()
 
 
 async def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> User:
+    token = credentials.credentials
     credentials_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -28,11 +30,24 @@ async def get_current_user(
         payload = decode_token(token)
         if payload.get("type") != "access":
             raise credentials_exc
-        user_id: str = payload["sub"]   # ULID — already a string
+        user_id: str = payload["sub"]
+        jti: str     = payload.get("jti", "")
         if not user_id:
             raise credentials_exc
     except (JWTError, KeyError):
         raise credentials_exc
+
+    # ── Blocklist check — reject tokens invalidated by logout ─────────────────
+    if jti:
+        blocked = await db.execute(
+            select(TokenBlocklist).where(TokenBlocklist.jti == jti)
+        )
+        if blocked.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()

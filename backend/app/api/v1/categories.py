@@ -22,12 +22,15 @@ from __future__ import annotations
 from typing import List, Optional
 
 from fastapi import APIRouter, Query
+from fastapi_cache.decorator import cache
 
+from app.core.config import settings
 from app.core.deps import AdminUser, DBSession
 from app.schemas.category import (
     CategoryCreate,
     CategoryOut,
     CategoryUpdate,
+    CategoryWithDomainsOut,
     DomainCreate,
     DomainOut,
     DomainUpdate,
@@ -36,12 +39,27 @@ from app.services import category_service
 
 router = APIRouter(tags=["Taxonomy"])
 
+# Categories change rarely — cache for 5× the default TTL
+_CAT_TTL  = settings.CACHE_TTL_SECONDS * 5
+_CACHE_TTL = settings.CACHE_TTL_SECONDS
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  CATEGORIES
 # ══════════════════════════════════════════════════════════════════════════════
 
+@router.get(
+    "/categories/with-domains",
+    response_model=List[CategoryWithDomainsOut],
+    summary="List active categories with their domains embedded (nav mega-menu)",
+)
+@cache(expire=_CAT_TTL)   # called on every page load — cache aggressively
+async def list_categories_with_domains(db: DBSession):
+    return await category_service.list_categories_with_domains(db)
+
+
 @router.get("/categories", response_model=List[CategoryOut], summary="List categories")
+@cache(expire=_CAT_TTL)
 async def list_categories(
     db: DBSession,
     active_only: bool = Query(True, description="Return only active categories"),
@@ -51,6 +69,7 @@ async def list_categories(
 
 
 @router.get("/categories/{slug}", response_model=CategoryOut, summary="Get one category")
+@cache(expire=_CACHE_TTL)
 async def get_category(slug: str, db: DBSession):
     return await category_service.get_category_by_slug(slug, db)
 
@@ -61,9 +80,7 @@ async def get_category(slug: str, db: DBSession):
     status_code=201,
     summary="Create category (admin)",
 )
-async def create_category(
-    payload: CategoryCreate, _admin: AdminUser, db: DBSession
-):
+async def create_category(payload: CategoryCreate, _admin: AdminUser, db: DBSession):
     """
     Creates a new category. The `slug` must be unique and use only
     lowercase letters, digits, and underscores (e.g. `real_estate`).
@@ -76,9 +93,7 @@ async def create_category(
     response_model=CategoryOut,
     summary="Update category (admin)",
 )
-async def update_category(
-    slug: str, payload: CategoryUpdate, _admin: AdminUser, db: DBSession
-):
+async def update_category(slug: str, payload: CategoryUpdate, _admin: AdminUser, db: DBSession):
     return await category_service.update_category(slug, payload, db)
 
 
@@ -109,6 +124,7 @@ async def delete_category(
 # ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/domains", response_model=List[DomainOut], summary="List domains")
+@cache(expire=_CAT_TTL)
 async def list_domains(
     db: DBSession,
     active_only: bool = Query(True),
@@ -124,6 +140,7 @@ async def list_domains(
 
 
 @router.get("/domains/{slug}", response_model=DomainOut, summary="Get one domain")
+@cache(expire=_CACHE_TTL)
 async def get_domain(slug: str, db: DBSession):
     return await category_service.get_domain_by_slug(slug, db)
 
@@ -134,9 +151,7 @@ async def get_domain(slug: str, db: DBSession):
     status_code=201,
     summary="Create domain (admin)",
 )
-async def create_domain(
-    payload: DomainCreate, _admin: AdminUser, db: DBSession
-):
+async def create_domain(payload: DomainCreate, _admin: AdminUser, db: DBSession):
     """
     Creates a new domain. Optionally assign it to a parent category via
     `category_slug` for grouped display in the frontend.
@@ -149,9 +164,7 @@ async def create_domain(
     response_model=DomainOut,
     summary="Update domain (admin)",
 )
-async def update_domain(
-    slug: str, payload: DomainUpdate, _admin: AdminUser, db: DBSession
-):
+async def update_domain(slug: str, payload: DomainUpdate, _admin: AdminUser, db: DBSession):
     return await category_service.update_domain(slug, payload, db)
 
 

@@ -4,18 +4,11 @@ import enum
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, Text
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.base import TimestampMixin, ULIDPrimaryKey
-
-
-class SubscriptionPlan(str, enum.Enum):
-    BASIC = "basic"
-    STANDARD = "standard"
-    PREMIUM = "premium"
-    PREMIERED = "premiered"  # to appeared in premiered section
+from app.models.base import PgEnum, TimestampMixin, ULIDPrimaryKey
 
 
 class SubscriptionStatus(str, enum.Enum):
@@ -37,18 +30,17 @@ class Subscription(ULIDPrimaryKey, TimestampMixin, Base):
     )
 
     # ── Plan details ──────────────────────────────────────────────────────────
-    plan: Mapped[SubscriptionPlan] = mapped_column(
-        Enum(SubscriptionPlan), nullable=False, default=SubscriptionPlan.BASIC
+    plan: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="basic"
     )
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(10), default="ETB", nullable=False)
 
     status: Mapped[SubscriptionStatus] = mapped_column(
-        Enum(SubscriptionStatus), nullable=False, default=SubscriptionStatus.PENDING, index=True
+        PgEnum(SubscriptionStatus), default=SubscriptionStatus.PENDING, index=True
     )
 
     # ── links.et receipt reference ────────────────────────────────────────────
-    # Only the receipt URL is stored — full receipt re-fetchable from links.et
     receipt_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True, unique=True)
     payment_provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     receipt_no: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)

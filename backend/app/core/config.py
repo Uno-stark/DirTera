@@ -1,75 +1,95 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env.dev",
+        env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
     )
 
-    # ── App ──────────────────────────────────────────────────────────────────
+    # App
     APP_NAME: str = "DirTera"
     APP_VERSION: str = "0.1.0"
     DEBUG: bool = False
     SECRET_KEY: str = "change-in-production"
-    ENVIRONMENT: str = "development"  # development | production
+    ENVIRONMENT: str = "development"
 
-    # ── CORS ─────────────────────────────────────────────────────────────────
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    # ── CORS 
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
-    
+    @property
+    def allowed_origins_list(self) -> List[str]:
+        """Use this in middleware — returns a proper list."""
+        raw = self.ALLOWED_ORIGINS.strip()
+        if raw.startswith("["):
+            import json
+            return json.loads(raw)
+        return [o.strip() for o in raw.split(",") if o.strip()]
+
+    # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./dirterra.db"
 
-    # Pool settings (ignored by SQLite)
+    # Pool settings
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
     DB_POOL_RECYCLE: int = 300
 
-    # ── JWT ──────────────────────────────────────────────────────────────────
+    # JWT
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
-    # ── Google OAuth ─────────────────────────────────────────────────────────
+    # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
-    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/google/callback"
+    GOOGLE_REDIRECT_URI: str = (
+        "http://localhost:8000/api/v1/auth/google/callback"
+    )
 
-    # ── links.et Payment ─────────────────────────────────────────────────────
-    # API key issued by links.et (header: x-api-key)
-    # Leave blank in dev — the service will use mock responses automatically
+    # links.et Payment
     LINKSSET_API_KEY: str = ""
 
-    # ── File / Storage ───────────────────────────────────────────────────────
-    UPLOAD_DIR: str = "uploads"
-    MAX_UPLOAD_SIZE_MB: int = 5
+    # Supabase Storage
+    SUPABASE_URL: str = ""
+    SUPABASE_SECRET_KEY: str = ""
+    SUPABASE_STORAGE_BUCKET: str = "website-images"
 
-    # ── Pagination ────────────────────────────────────────────────────────────
+    # Image limits
+    MAX_LOGO_SIZE_MB: float = 2.0
+    MAX_IMAGE_SIZE_MB: float = 5.0
+    MAX_IMAGES_PER_WEBSITE: int = 3
+    IMAGE_MAX_DIMENSION: int = 1920
+    IMAGE_WEBP_QUALITY: int = 82
+
+    # Pagination
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
 
-    # ── Email (optional — for rejection notifications) ────────────────────────
+    # ── Rate limiting 
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_GLOBAL: str = "200/minute"
+    RATE_LIMIT_AUTH: str = "10/minute"
+    RATE_LIMIT_PAYMENT: str = "5/minute"
+    RATE_LIMIT_CLICK: str = "60/minute"
+    RATE_LIMIT_REVIEW: str = "10/minute"
+    REDIS_URL: Optional[str] = None
+    CACHE_BACKEND: str = "memory"
+    CACHE_TTL_SECONDS: int = 60
+
+    # Email
     SMTP_HOST: Optional[str] = None
     SMTP_PORT: int = 587
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
     EMAILS_FROM_EMAIL: str = "noreply@dirterra.et"
     EMAILS_FROM_NAME: str = "DirTera"
-
-    @field_validator("ALLOWED_ORIGINS", mode="before")
-    @classmethod
-    def parse_origins(cls, v):
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
-        return v
 
 
 @lru_cache
