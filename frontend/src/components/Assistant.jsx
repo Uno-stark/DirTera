@@ -12,7 +12,8 @@ const ai = new VoxideClient({
   ui: {
     hotkeyActivate: "alt+k", // User can press Alt+K to start voice session
     enableChat: true, // Enable text chat interface
-    enableVoice: true, // Keep voice enabled
+    enableVoice: false, // Keep voice enabled
+    hotkeyDeactivate: "escape", 
   }
 });
 
