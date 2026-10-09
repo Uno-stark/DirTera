@@ -5,14 +5,14 @@ nixpkgsArchive = "51ad838b03a05b1de6f9f2a0fffecee64a9788ee"
 
 [phases.install]
 cmds = [
-    "pip install -r backend/requirements.txt",
-    "cd frontend && npm ci"
+  "pip install -r backend/requirements.txt",
+  "cd frontend && npm ci"
 ]
 
 [phases.build]
 cmds = [
-    "cd frontend && npm run build"
+  "cd frontend && npm run build"
 ]
 
 [start]
-cmd = "sh -c 'cd backend && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers'"
+cmd = "cd backend && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers"
