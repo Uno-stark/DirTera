@@ -48,6 +48,7 @@ async def create_category(payload: CategoryCreate, db: AsyncSession) -> Category
     cat = Category(**payload.model_dump())
     db.add(cat)
     await db.flush()
+    await db.refresh(cat)
     return cat
 
 
@@ -58,6 +59,7 @@ async def update_category(
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(cat, field, value)
     await db.flush()
+    await db.refresh(cat)
     return cat
 
 
@@ -125,6 +127,7 @@ async def create_domain(payload: DomainCreate, db: AsyncSession) -> Domain:
     dom = Domain(**payload.model_dump())
     db.add(dom)
     await db.flush()
+    await db.refresh(dom)
     return dom
 
 
@@ -142,6 +145,7 @@ async def update_domain(slug: str, payload: DomainUpdate, db: AsyncSession) -> D
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(dom, field, value)
     await db.flush()
+    await db.refresh(dom)
     return dom
 
 

@@ -54,7 +54,6 @@ function DomainPortal({ category, anchorRef }) {
       role="list"
       aria-label={`${category.name} domains`}
     >
-      <p className="nav-domain-box-heading">{category.name}</p>
       <div className="nav-domain-pills">
         {category.domains.map((domain) => (
           <Link

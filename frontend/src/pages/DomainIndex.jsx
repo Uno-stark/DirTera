@@ -120,7 +120,7 @@ function DomainIndex() {
 
   const queryParams = { domainSlug, filter, page, pageSize: PAGE_SIZE };
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: keys.domainWebsites(domainSlug, { filter, page }),
     queryFn:  () => fetchDomainWebsites(queryParams),
     // Keep previous page data visible while the next page loads
@@ -255,7 +255,8 @@ function DomainIndex() {
             )}
 
             {!isLoading && !isError && websites.length > 0 && (
-              <div className="di-list">
+              <div className={`di-list${isFetching ? " di-list-loading" : ""}`}>
+                {isFetching && <div className="di-page-loader" aria-label="Loading" />}
                 {websites.map((biz, i) => (
                   <WebsiteRow key={biz.id} business={biz} index={i} page={page} />
                 ))}

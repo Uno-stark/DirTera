@@ -7,20 +7,20 @@
   },
   {
     "image": "server.webp",
-    "label": "Services & Trades",
+    "label": "Digital Service & Tec Sol.",
     "heading": "The people who\nkeep things running.",
     "sub": "Find trusted professionals for every job, big or small."
   },
   {
     "image": "gym.webp",
-    "label": "Shops & Boutiques",
-    "heading": "Shop local,\nshop distinct.",
-    "sub": "Independent stores with character — curated by the community."
+    "label": "Fitness & Health",
+    "heading": "Look good,\nfeel even better.",
+    "sub": "Gyms, spas, clinics, and more — everything for your wellbeing in one place."
   },
   {
     "image": "cars.webp",
-    "label": "Health & Wellness",
-    "heading": "Places that care\nabout how you feel.",
-    "sub": "Gyms, spas, clinics, and more — all in one place."
+    "label": "Car rental & Dealing",
+    "heading": "Your next ride\nstarts here.",
+    "sub": "Rent or buy with confidence — trusted dealers and rentals near you."
   }
 ]

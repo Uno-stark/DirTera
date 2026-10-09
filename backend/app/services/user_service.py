@@ -22,6 +22,7 @@ async def update_user(user: User, payload: UserUpdate, db: AsyncSession) -> User
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(user, field, value)
     await db.flush()
+    await db.refresh(user)
     return user
 
 
@@ -30,6 +31,7 @@ async def admin_update_user(user_id: str, payload: UserAdminUpdate, db: AsyncSes
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(user, field, value)
     await db.flush()
+    await db.refresh(user)
     return user
 
 

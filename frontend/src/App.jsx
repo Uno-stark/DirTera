@@ -29,6 +29,7 @@ const AdminSubscriptions = lazy(() => import("./pages/Admin/AdminSubscriptions")
 
 // ── Shared ────────────────────────────────────────────────────────────────────
 import ProtectedRoute from "./components/ProtectedRoute";
+import { Assistant } from "./components/Assistant";
 
 function AuthModalLayer() {
   const location           = useLocation();
@@ -87,6 +88,7 @@ function App() {
     <BrowserRouter>
       <Suspense fallback={<PageLoader />}>
         <AuthModalLayer />
+        <Assistant />
       </Suspense>
     </BrowserRouter>
   );

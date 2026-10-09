@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronLeft, ChevronRight, Minus, Search, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import {
+  Search, X, CheckCircle2, XCircle, Flag, ChevronLeft, ChevronRight, ExternalLink,
+} from "lucide-react";
 import api from "../../api/client";
 import { fetchAdminAll, keys } from "../../api/queries";
+import { Toast, useToast } from "../../components/admin/Toast";
 
 const PAGE_SIZE = 20;
 
@@ -16,7 +20,81 @@ function useDebounce(value, ms = 300) {
   return debounced;
 }
 
+/* ── Status badge ── */
+function StatusBadge({ status }) {
+  const cls =
+    status === "approved" ? "admin-badge admin-badge-approved" :
+    status === "rejected" ? "admin-badge admin-badge-rejected" :
+    "admin-badge admin-badge-pending";
+  return <span className={cls}>{status}</span>;
+}
+
+/* ── Skeleton rows ── */
+function SkeletonRows({ count = 10 }) {
+  return Array.from({ length: count }).map((_, i) => (
+    <tr key={i} className="skeleton-row">
+      <td><div className="skeleton skeleton-cell" style={{ width: 140 }} /></td>
+      <td><div className="skeleton skeleton-cell" style={{ width: 70, borderRadius: 999 }} /></td>
+      <td><div className="skeleton skeleton-cell" style={{ width: 60, borderRadius: 999 }} /></td>
+      <td><div className="skeleton skeleton-cell" style={{ width: 60, borderRadius: 999 }} /></td>
+      <td><div style={{ display: "flex", gap: 6 }}>
+        {[60, 55, 50].map((w, j) => <div key={j} className="skeleton skeleton-cell" style={{ width: w, height: 24, borderRadius: 5 }} />)}
+      </div></td>
+    </tr>
+  ));
+}
+
+/* ── Pagination ── */
+function Pagination({ page, totalPages, total, onPage }) {
+  if (totalPages <= 1) return null;
+  const start = (page - 1) * PAGE_SIZE + 1;
+  const end   = Math.min(page * PAGE_SIZE, total);
+  const pages = [];
+  for (let p = 1; p <= totalPages; p++) {
+    if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) pages.push(p);
+  }
+  return (
+    <div className="admin-pagination">
+      <span className="admin-pagination-info">Showing {start}–{end} of {total.toLocaleString()}</span>
+      <div className="admin-pagination-btns">
+        <button className="admin-page-btn" onClick={() => onPage(page - 1)} disabled={page === 1} aria-label="Previous">
+          <ChevronLeft size={13} />
+        </button>
+        {pages.flatMap((p, i, arr) => {
+          const btn = (
+            <button key={p} className={`admin-page-btn${p === page ? " active" : ""}`}
+              onClick={() => onPage(p)} aria-current={p === page ? "page" : undefined}>{p}</button>
+          );
+          return i > 0 && p - arr[i - 1] > 1
+            ? [<span key={`e${p}`} style={{ padding: "0 2px", color: "#9ca3af", fontSize: 12 }}>…</span>, btn]
+            : [btn];
+        })}
+        <button className="admin-page-btn" onClick={() => onPage(page + 1)} disabled={page === totalPages} aria-label="Next">
+          <ChevronRight size={13} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Modal ── */
+function Modal({ title, onClose, children }) {
+  return (
+    <div className="admin-modal-backdrop" onClick={onClose}>
+      <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="admin-modal-header">
+          <h2 className="admin-modal-title">{title}</h2>
+          <button className="admin-modal-close" onClick={onClose} aria-label="Close"><X size={16} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ── Main ── */
 function Websites() {
+  const { toasts, toast, dismissToast } = useToast();
   const [searchParams]  = useSearchParams();
   const queryClient     = useQueryClient();
 
@@ -27,14 +105,12 @@ function Websites() {
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebounce(searchInput, 300);
 
-  // Reset to page 1 when filters or search term change
   useEffect(() => { setPage(1); }, [statusFilter, premiered, debouncedSearch]);
 
-  // ── Query params ──────────────────────────────────────────────────────────
   const queryParams = useMemo(() => {
     const p = { page, page_size: PAGE_SIZE };
-    if (statusFilter) p.status = statusFilter;
-    if (premiered)    p.is_premiered = true;
+    if (statusFilter)    p.status = statusFilter;
+    if (premiered)       p.is_premiered = true;
     if (debouncedSearch) p.search = debouncedSearch;
     return p;
   }, [page, statusFilter, premiered, debouncedSearch]);
@@ -42,7 +118,6 @@ function Websites() {
   const { data, isLoading, isError } = useQuery({
     queryKey: keys.adminAll(queryParams),
     queryFn:  () => fetchAdminAll(queryParams),
-    // Keep previous page data visible while next page loads
     placeholderData: (prev) => prev,
   });
 
@@ -50,24 +125,20 @@ function Websites() {
   const total      = data?.total       ?? 0;
   const totalPages = data?.total_pages ?? 1;
 
-  // Prefetch next page
   useEffect(() => {
     if (page < totalPages) {
       const next = { ...queryParams, page: page + 1 };
-      queryClient.prefetchQuery({
-        queryKey: keys.adminAll(next),
-        queryFn:  () => fetchAdminAll(next),
-      });
+      queryClient.prefetchQuery({ queryKey: keys.adminAll(next), queryFn: () => fetchAdminAll(next) });
     }
   }, [page, totalPages, queryParams, queryClient]);
 
-  // ── Reject modal ──────────────────────────────────────────────────────────
-  const [rejectTarget,      setRejectTarget]      = useState(null);
-  const [rejectionMessage,  setRejectionMessage]  = useState("");
-  const [rejectError,       setRejectError]       = useState("");
-  const [rejecting,         setRejecting]         = useState(false);
+  // Reject modal
+  const [rejectTarget,     setRejectTarget]     = useState(null);
+  const [rejectionMessage, setRejectionMessage] = useState("");
+  const [rejectError,      setRejectError]      = useState("");
+  const [rejecting,        setRejecting]        = useState(false);
 
-  // ── Flags modal ───────────────────────────────────────────────────────────
+  // Flags modal
   const [flagTarget,  setFlagTarget]  = useState(null);
   const [flags,       setFlags]       = useState({ is_premiered: false, is_verified: false });
   const [savingFlags, setSavingFlags] = useState(false);
@@ -75,24 +146,23 @@ function Websites() {
 
   const [actingId, setActingId] = useState(null);
 
-  // Helper to refetch current page after a mutation
-  const refetchCurrent = () =>
-    queryClient.invalidateQueries({ queryKey: ["admin", "websites"] });
+  const refetch = () => queryClient.invalidateQueries({ queryKey: ["admin", "websites"] });
 
-  // ── Approve ───────────────────────────────────────────────────────────────
+  /* ── Approve ── */
   const approve = async (site) => {
     setActingId(site.id);
     try {
       await api.post(`/api/v1/websites/${site.id}/approve`);
-      await refetchCurrent();
+      toast(`"${site.name}" approved.`);
+      await refetch();
     } catch (err) {
-      alert(err.response?.data?.detail || "Failed to approve.");
+      toast(err.response?.data?.detail || "Failed to approve.", "error");
     } finally {
       setActingId(null);
     }
   };
 
-  // ── Reject ────────────────────────────────────────────────────────────────
+  /* ── Reject ── */
   const openReject = (site) => {
     setRejectTarget(site);
     setRejectionMessage("");
@@ -103,13 +173,11 @@ function Websites() {
     e.preventDefault();
     if (!rejectionMessage.trim()) { setRejectError("Rejection message is required."); return; }
     setRejecting(true);
-    setRejectError("");
     try {
-      await api.post(`/api/v1/websites/${rejectTarget.id}/reject`, {
-        rejection_message: rejectionMessage,
-      });
+      await api.post(`/api/v1/websites/${rejectTarget.id}/reject`, { rejection_message: rejectionMessage });
+      toast(`"${rejectTarget.name}" rejected.`);
       setRejectTarget(null);
-      await refetchCurrent();
+      await refetch();
     } catch (err) {
       setRejectError(err.response?.data?.detail || "Failed to reject.");
     } finally {
@@ -117,7 +185,7 @@ function Websites() {
     }
   };
 
-  // ── Flags ─────────────────────────────────────────────────────────────────
+  /* ── Flags ── */
   const openFlags = (site) => {
     setFlagTarget(site);
     setFlags({ is_premiered: site.is_premiered, is_verified: site.is_verified });
@@ -127,11 +195,11 @@ function Websites() {
   const saveFlags = async (e) => {
     e.preventDefault();
     setSavingFlags(true);
-    setFlagError("");
     try {
       await api.patch(`/api/v1/websites/${flagTarget.id}/admin`, flags);
+      toast(`Flags updated for "${flagTarget.name}".`);
       setFlagTarget(null);
-      await refetchCurrent();
+      await refetch();
     } catch (err) {
       setFlagError(err.response?.data?.detail || "Failed to update flags.");
     } finally {
@@ -139,216 +207,207 @@ function Websites() {
     }
   };
 
-  const statusBadgeClass = (s) =>
-    s === "approved" ? "admin-badge admin-badge-approved" :
-    s === "rejected" ? "admin-badge admin-badge-rejected" :
-    "admin-badge admin-badge-pending";
-
-  const getPageTitle = () => {
-    if (premiered)             return "Premiered Websites";
-    if (statusFilter === "approved") return "Approved Websites";
-    if (statusFilter === "pending")  return "Pending Websites";
-    if (statusFilter === "rejected") return "Rejected Websites";
-    return "Websites";
-  };
-
-  // Pagination pill builder
-  const pageNumbers = useMemo(() => {
-    const pages = new Set();
-    for (let p = 1; p <= totalPages; p++) {
-      if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) pages.add(p);
-    }
-    return [...pages].sort((a, b) => a - b);
-  }, [page, totalPages]);
+  const pageTitle =
+    premiered                   ? "Premiered Websites" :
+    statusFilter === "approved" ? "Approved Websites"  :
+    statusFilter === "pending"  ? "Pending Websites"   :
+    statusFilter === "rejected" ? "Rejected Websites"  : "Websites";
 
   return (
     <div className="admin-page">
-      <h1 className="admin-page-title">{getPageTitle()}</h1>
+      <Toast messages={toasts} onDismiss={dismissToast} />
 
-      {/* ── Search bar ────────────────────────────────────────────────── */}
-      <div className="admin-search-bar" style={{ marginBottom: 20, display: "flex", gap: 8 }}>
-        <div style={{ position: "relative", flex: 1, maxWidth: 360 }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">{pageTitle}</h1>
+          {!isLoading && (
+            <p className="admin-subtitle">{total.toLocaleString()} website{total !== 1 ? "s" : ""}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Toolbar */}
+      <div className="admin-toolbar">
+        <div className="admin-search-wrap">
+          <Search size={13} className="admin-search-icon" />
           <input
             type="search"
-            placeholder="Search by name, owner, or URL…"
+            className="admin-search"
+            placeholder="Search by name or URL…"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            style={{ width: "100%", padding: "8px 32px 8px 32px", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 13 }}
           />
           {searchInput && (
-            <button type="button" onClick={() => setSearchInput("")}
-              style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9ca3af" }}
-              aria-label="Clear search">
-              <X size={14} />
+            <button className="admin-search-clear" onClick={() => setSearchInput("")} aria-label="Clear">
+              <X size={13} />
             </button>
           )}
         </div>
-        {!isLoading && (
-          <span style={{ alignSelf: "center", fontSize: 13, color: "#6b7280" }}>
-            {total.toLocaleString()} website{total !== 1 ? "s" : ""}
-          </span>
-        )}
       </div>
 
-      {isError && <p className="admin-error">Failed to load websites.</p>}
-      {isLoading && <p style={{ color: "#6b7280" }}>Loading websites…</p>}
-
-      {!isLoading && !isError && websites.length === 0 && (
-        <div className="admin-card">
-          <p className="admin-empty">
-            {debouncedSearch ? `No websites match "${debouncedSearch}".` : "No websites found."}
-          </p>
-        </div>
+      {isError && (
+        <div className="admin-error" style={{ marginBottom: 14 }}>Failed to load websites.</div>
       )}
 
-      {websites.length > 0 && (
-        <div className="admin-card">
-          <div className="admin-table-wrapper">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Owner</th>
-                  <th>Category</th>
-                  <th>Status</th>
-                  <th>Premiered</th>
-                  <th>Verified</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {websites.map((site) => (
+      <div className="admin-card">
+        <div className="admin-table-wrapper">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Premiered</th>
+                <th>Verified</th>
+                <th style={{ minWidth: 160 }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <SkeletonRows count={10} />
+              ) : websites.length === 0 ? (
+                <tr><td colSpan={5}>
+                  <p className="admin-empty">
+                    {debouncedSearch ? `No results for "${debouncedSearch}".` : "No websites found."}
+                  </p>
+                </td></tr>
+              ) : (
+                websites.map((site) => (
                   <tr key={site.id}>
                     <td>
-                      <a href={site.url} target="_blank" rel="noreferrer" className="admin-link">
-                        {site.name}
-                      </a>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <a href={site.url} target="_blank" rel="noreferrer" className="admin-link">
+                          {site.name}
+                        </a>
+                        <Link
+                          to={`/businesses/${site.id}`}
+                          title="View business page"
+                          style={{
+                            display: "inline-flex", alignItems: "center",
+                            color: "#9ca3af", flexShrink: 0,
+                            transition: "color 0.15s",
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = "#6366f1"}
+                          onMouseLeave={(e) => e.currentTarget.style.color = "#9ca3af"}
+                        >
+                          <ExternalLink size={12} />
+                        </Link>
+                      </div>
                     </td>
-                    <td>{site.owner?.email ?? "—"}</td>
-                    <td>{site.category_slug ?? "—"}</td>
-                    <td><span className={statusBadgeClass(site.status)}>{site.status}</span></td>
-                    <td>{site.is_premiered ? <Check size={14} /> : <Minus size={14} color="#9ca3af" />}</td>
-                    <td>{site.is_verified  ? <Check size={14} /> : <Minus size={14} color="#9ca3af" />}</td>
+                    <td><StatusBadge status={site.status} /></td>
                     <td>
-                      <div className="admin-action-row">
-                        {site.status !== "approved" && (
-                          <button className="admin-button-sm admin-button-green"
-                            disabled={actingId === site.id} onClick={() => approve(site)}>
-                            Approve
-                          </button>
-                        )}
-                        {site.status !== "rejected" && (
-                          <button className="admin-button-sm admin-button-red" onClick={() => openReject(site)}>
-                            Reject
-                          </button>
-                        )}
-                        <button className="admin-button-sm" onClick={() => openFlags(site)}>
-                          Flags
+                      {site.is_premiered
+                        ? <span className="admin-badge admin-badge-blue">Premiered</span>
+                        : <span style={{ color: "#d1d5db" }}>—</span>}
+                    </td>
+                    <td>
+                      {site.is_verified
+                        ? <span className="admin-badge admin-badge-approved">Verified</span>
+                        : <span style={{ color: "#d1d5db" }}>—</span>}
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: 5, alignItems: "center", minWidth: 155 }}>
+                        {/* Approve — occupies fixed slot, invisible when not applicable */}
+                        <span style={{ display: "inline-flex", minWidth: 70 }}>
+                          {site.status !== "approved" && (
+                            <button
+                              className="admin-btn-xs green"
+                              disabled={actingId === site.id}
+                              onClick={() => approve(site)}
+                            >
+                              <CheckCircle2 size={12} /> Approve
+                            </button>
+                          )}
+                        </span>
+                        {/* Reject — fixed slot */}
+                        <span style={{ display: "inline-flex", minWidth: 60 }}>
+                          {site.status !== "rejected" && (
+                            <button
+                              className="admin-btn-xs red"
+                              onClick={() => openReject(site)}
+                            >
+                              <XCircle size={12} /> Reject
+                            </button>
+                          )}
+                        </span>
+                        <button
+                          className="admin-btn-xs neutral"
+                          onClick={() => openFlags(site)}
+                        >
+                          <Flag size={12} /> Flags
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* ── Pagination ─────────────────────────────────────────────── */}
-          {totalPages > 1 && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 20, flexWrap: "wrap", gap: 8 }}>
-              <span style={{ fontSize: 13, color: "#6b7280" }}>
-                Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, total)} of {total.toLocaleString()}
-              </span>
-              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                <button className="admin-button-outline" style={{ padding: "4px 8px" }}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                  aria-label="Previous page">
-                  <ChevronLeft size={14} />
-                </button>
-
-                {pageNumbers.flatMap((p, i, arr) => {
-                  const btn = (
-                    <button key={p}
-                      style={{ padding: "4px 10px", border: "1px solid", borderRadius: 4, fontSize: 13, cursor: "pointer",
-                        background: p === page ? "#111" : "transparent",
-                        color:      p === page ? "#fff" : "#374151",
-                        borderColor: p === page ? "#111" : "#e5e7eb" }}
-                      onClick={() => setPage(p)} aria-current={p === page ? "page" : undefined}>
-                      {p}
-                    </button>
-                  );
-                  if (i > 0 && p - arr[i - 1] > 1) {
-                    return [<span key={`e${p}`} style={{ padding: "0 4px", color: "#9ca3af" }}>…</span>, btn];
-                  }
-                  return [btn];
-                })}
-
-                <button className="admin-button-outline" style={{ padding: "4px 8px" }}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                  aria-label="Next page">
-                  <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
-          )}
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
 
-      {/* ── Reject modal ──────────────────────────────────────────────── */}
+        <Pagination page={page} totalPages={totalPages} total={total} onPage={setPage} />
+      </div>
+
+      {/* ── Reject modal ── */}
       {rejectTarget && (
-        <div className="admin-modal-backdrop" onClick={() => setRejectTarget(null)}>
-          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Reject "{rejectTarget.name}"</h2>
-            <form className="admin-form" onSubmit={confirmReject}>
-              <label>
-                Rejection message
-                <textarea className="admin-textarea" rows={4} value={rejectionMessage}
-                  onChange={(e) => setRejectionMessage(e.target.value)}
-                  placeholder="Explain why this listing is being rejected…" required />
-              </label>
-              {rejectError && <p className="admin-error">{rejectError}</p>}
-              <div className="admin-form-row">
-                <button type="submit" className="admin-button admin-button-red-solid" disabled={rejecting}>
-                  {rejecting ? "Rejecting…" : "Confirm reject"}
-                </button>
-                <button type="button" className="admin-button-outline" onClick={() => setRejectTarget(null)}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Modal title={`Reject "${rejectTarget.name}"`} onClose={() => setRejectTarget(null)}>
+          <form className="admin-form" onSubmit={confirmReject}>
+            <div className="admin-field">
+              <label>Rejection message</label>
+              <textarea
+                className="admin-textarea"
+                rows={4}
+                value={rejectionMessage}
+                onChange={(e) => setRejectionMessage(e.target.value)}
+                placeholder="Explain why this listing is being rejected…"
+                required
+                autoFocus
+              />
+            </div>
+            {rejectError && <div className="admin-error" style={{ fontSize: 13 }}>{rejectError}</div>}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
+              <button type="button" className="admin-button-outline" onClick={() => setRejectTarget(null)}>
+                Cancel
+              </button>
+              <button type="submit" className="admin-button" disabled={rejecting}
+                style={{ background: "#dc2626" }}>
+                {rejecting ? "Rejecting…" : "Confirm reject"}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
-      {/* ── Flags modal ───────────────────────────────────────────────── */}
+      {/* ── Flags modal ── */}
       {flagTarget && (
-        <div className="admin-modal-backdrop" onClick={() => setFlagTarget(null)}>
-          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Flags — "{flagTarget.name}"</h2>
-            <form className="admin-form" onSubmit={saveFlags}>
-              <label className="admin-checkbox-label">
-                <input type="checkbox" checked={flags.is_premiered}
-                  onChange={(e) => setFlags((f) => ({ ...f, is_premiered: e.target.checked }))} />
-                Premiered
-              </label>
-              <label className="admin-checkbox-label">
-                <input type="checkbox" checked={flags.is_verified}
-                  onChange={(e) => setFlags((f) => ({ ...f, is_verified: e.target.checked }))} />
-                Verified
-              </label>
-              {flagError && <p className="admin-error">{flagError}</p>}
-              <div className="admin-form-row">
-                <button type="submit" className="admin-button" disabled={savingFlags}>
-                  {savingFlags ? "Saving…" : "Save flags"}
-                </button>
-                <button type="button" className="admin-button-outline" onClick={() => setFlagTarget(null)}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Modal title={`Flags — "${flagTarget.name}"`} onClose={() => setFlagTarget(null)}>
+          <form className="admin-form" onSubmit={saveFlags}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={flags.is_premiered}
+                onChange={(e) => setFlags((f) => ({ ...f, is_premiered: e.target.checked }))}
+              />
+              Premiered
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={flags.is_verified}
+                onChange={(e) => setFlags((f) => ({ ...f, is_verified: e.target.checked }))}
+              />
+              Verified
+            </label>
+            {flagError && <div className="admin-error" style={{ fontSize: 13 }}>{flagError}</div>}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
+              <button type="button" className="admin-button-outline" onClick={() => setFlagTarget(null)}>
+                Cancel
+              </button>
+              <button type="submit" className="admin-button" disabled={savingFlags}>
+                {savingFlags ? "Saving…" : "Save flags"}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

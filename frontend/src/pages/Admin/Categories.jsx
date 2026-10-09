@@ -1,169 +1,209 @@
-import { useEffect, useState } from "react";
-import { Check, Minus, Trash2 } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Plus, Pencil, Trash2, X } from "lucide-react";
 import api from "../../api/client";
+import { Toast, useToast } from "../../components/admin/Toast";
 
-const CONFIRM_DELETE = (name) =>
-  window.confirm(`Deactivate "${name}"? It will be hidden from public listings.`);
+const PAGE_SIZE = 15;
+const EMPTY_FORM = { slug: "", name: "" };
 
-const EMPTY_FORM = {
-  slug: "",
-  name: "",
-  description: "",
-  icon: "",
-  sort_order: 0,
-  is_active: true,
-};
+/* ── Toggle ──────────────────────────────────────────────────────────────────── */
+function Toggle({ on, onChange, disabled }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      disabled={disabled}
+      className={`toggle-track${on ? " on" : ""}`}
+      onClick={() => !disabled && onChange(!on)}
+    >
+      <span className="toggle-thumb" />
+    </button>
+  );
+}
 
+/* ── Skeleton ────────────────────────────────────────────────────────────────── */
+function SkeletonRows({ count = 8 }) {
+  return Array.from({ length: count }).map((_, i) => (
+    <tr key={i} className="skeleton-row">
+      <td><div className="skeleton skeleton-cell" style={{ width: 140 }} /></td>
+      <td><div className="skeleton skeleton-cell" style={{ width: 30, borderRadius: 999 }} /></td>
+      <td><div style={{ display: "flex", gap: 6 }}>
+        <div className="skeleton skeleton-cell" style={{ width: 28, height: 28 }} />
+        <div className="skeleton skeleton-cell" style={{ width: 28, height: 28 }} />
+      </div></td>
+    </tr>
+  ));
+}
+
+/* ── Pagination ──────────────────────────────────────────────────────────────── */
+function Pagination({ page, totalPages, total, onPage }) {
+  if (totalPages <= 1) return null;
+  const start = (page - 1) * PAGE_SIZE + 1;
+  const end   = Math.min(page * PAGE_SIZE, total);
+  const pages = [];
+  for (let p = 1; p <= totalPages; p++) {
+    if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) pages.push(p);
+  }
+  return (
+    <div className="admin-pagination">
+      <span className="admin-pagination-info">{start}–{end} of {total}</span>
+      <div className="admin-pagination-btns">
+        <button className="admin-page-btn" onClick={() => onPage(page - 1)} disabled={page === 1}>‹</button>
+        {pages.flatMap((p, i, arr) => {
+          const btn = (
+            <button key={p} className={`admin-page-btn${p === page ? " active" : ""}`} onClick={() => onPage(p)}>
+              {p}
+            </button>
+          );
+          return i > 0 && p - arr[i - 1] > 1
+            ? [<span key={`e${p}`} style={{ padding: "0 2px", color: "#9ca3af", fontSize: 13 }}>…</span>, btn]
+            : [btn];
+        })}
+        <button className="admin-page-btn" onClick={() => onPage(page + 1)} disabled={page === totalPages}>›</button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Modal ───────────────────────────────────────────────────────────────────── */
+function Modal({ title, onClose, children }) {
+  return (
+    <div className="admin-modal-backdrop" onClick={onClose}>
+      <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="admin-modal-header">
+          <h2 className="admin-modal-title">{title}</h2>
+          <button className="admin-modal-close" onClick={onClose} aria-label="Close"><X size={16} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ── Main ────────────────────────────────────────────────────────────────────── */
 function Categories() {
-  const [categories, setCategories] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const { toasts, toast, dismissToast } = useToast();
 
-  // create form
-  const [createForm, setCreateForm] = useState(EMPTY_FORM);
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState("");
+  const [all,          setAll]          = useState([]);
+  const [isLoading,    setIsLoading]    = useState(true);
+  const [page,         setPage]         = useState(1);
+
+  // add modal
+  const [showAdd,      setShowAdd]      = useState(false);
+  const [addForm,      setAddForm]      = useState(EMPTY_FORM);
+  const [adding,       setAdding]       = useState(false);
+  const [addError,     setAddError]     = useState("");
 
   // edit modal
-  const [editTarget, setEditTarget] = useState(null);
-  const [editForm, setEditForm] = useState({
-    icon: "",
-    sort_order: 0,
-  });
-  const [updating, setUpdating] = useState(false);
-  const [editError, setEditError] = useState("");
+  const [editTarget,   setEditTarget]   = useState(null);
+  const [editName,     setEditName]     = useState("");
+  const [updating,     setUpdating]     = useState(false);
+  const [editError,    setEditError]    = useState("");
 
-  // delete
+  // in-flight slugs
+  const [togglingSlug, setTogglingSlug] = useState(null);
   const [deletingSlug, setDeletingSlug] = useState(null);
 
-  const loadCategories = async () => {
+  /* ── Load ── */
+  const load = useCallback(async () => {
     setIsLoading(true);
-    setError("");
-
     try {
       const { data } = await api.get("/api/v1/categories", { params: { active_only: false } });
-      setCategories(data.items ?? data);
+      setAll(data.items ?? data);
     } catch (err) {
-      setError(
-        err.response?.data?.detail || "Failed to load categories."
-      );
+      toast(err.response?.data?.detail || "Failed to load categories.", "error");
     } finally {
       setIsLoading(false);
     }
+  }, [toast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const totalPages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
+  const items      = all.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  /* ── Add ── */
+  const openAdd = () => {
+    setAddForm(EMPTY_FORM);
+    setAddError("");
+    setShowAdd(true);
   };
 
-  useEffect(() => {
-    loadCategories();
-  }, []);
-
-  // --- Create ---
-  const handleCreateChange = (e) => {
-    const { name, value, type, checked } = e.target;
-
-    setCreateForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
-
-  const handleCreate = async (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault();
-
-    setCreating(true);
-    setCreateError("");
-    setSuccess("");
-
+    setAdding(true);
+    setAddError("");
     try {
       await api.post("/api/v1/categories", {
-        ...createForm,
-        sort_order: Number(createForm.sort_order),
+        slug:      addForm.slug.trim().toLowerCase().replace(/\s+/g, "_"),
+        name:      addForm.name.trim(),
+        is_active: true,
+        sort_order: 0,
       });
-
-      setSuccess(`Category "${createForm.name}" created.`);
-      setCreateForm(EMPTY_FORM);
-
-      await loadCategories();
+      toast(`Category "${addForm.name}" created.`);
+      setShowAdd(false);
+      load();
     } catch (err) {
-      setCreateError(
-        err.response?.data?.detail || "Failed to create category."
-      );
+      setAddError(err.response?.data?.detail || "Failed to create category.");
     } finally {
-      setCreating(false);
+      setAdding(false);
     }
   };
 
-  // --- Edit ---
+  /* ── Edit ── */
   const openEdit = (cat) => {
     setEditTarget(cat);
-
-    setEditForm({
-      icon: cat.icon ?? "",
-      sort_order: cat.sort_order ?? 0,
-    });
-
+    setEditName(cat.name);
     setEditError("");
-  };
-
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-
-    setEditForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
   };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
-
+    if (!editName.trim()) { setEditError("Name is required."); return; }
     setUpdating(true);
     setEditError("");
-    setSuccess("");
-
     try {
+      /* PATCH /categories/{slug} — send only fields we want to change */
       await api.patch(`/api/v1/categories/${editTarget.slug}`, {
-        icon: editForm.icon,
-        sort_order: Number(editForm.sort_order),
+        name: editName.trim(),
       });
-
-      setSuccess(`Category "${editTarget.name}" updated.`);
+      toast(`Category "${editName}" updated.`);
       setEditTarget(null);
-
-      await loadCategories();
+      load();
     } catch (err) {
-      setEditError(
-        err.response?.data?.detail || "Failed to update category."
-      );
+      setEditError(err.response?.data?.detail || "Failed to update category.");
     } finally {
       setUpdating(false);
     }
   };
 
-  // --- Delete ---
-  const handleDelete = async (category) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${category.name}"?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setDeletingSlug(category.slug);
-    setError("");
-    setSuccess("");
-
+  /* ── Toggle active ── */
+  const toggleActive = async (cat) => {
+    setTogglingSlug(cat.slug);
     try {
-      await api.delete(`/api/v1/categories/${category.slug}`);
-
-      setSuccess(`Category "${category.name}" deleted.`);
-
-      await loadCategories();
-    } catch (err) {
-      setError(
-        err.response?.data?.detail || "Failed to delete category."
+      await api.patch(`/api/v1/categories/${cat.slug}`, { is_active: !cat.is_active });
+      setAll((prev) =>
+        prev.map((c) => c.slug === cat.slug ? { ...c, is_active: !c.is_active } : c)
       );
+      toast(`"${cat.name}" ${!cat.is_active ? "activated" : "deactivated"}.`);
+    } catch (err) {
+      toast(err.response?.data?.detail || "Failed to update status.", "error");
+    } finally {
+      setTogglingSlug(null);
+    }
+  };
+
+  /* ── Delete ── */
+  const handleDelete = async (cat) => {
+    if (!window.confirm(`Delete "${cat.name}"? This cannot be undone.`)) return;
+    setDeletingSlug(cat.slug);
+    try {
+      await api.delete(`/api/v1/categories/${cat.slug}`, { params: { hard: true } });
+      toast(`Category "${cat.name}" deleted.`);
+      load();
+    } catch (err) {
+      toast(err.response?.data?.detail || "Failed to delete category.", "error");
     } finally {
       setDeletingSlug(null);
     }
@@ -171,258 +211,143 @@ function Categories() {
 
   return (
     <div className="admin-page">
-      <h1 className="admin-page-title">Categories</h1>
+      <Toast messages={toasts} onDismiss={dismissToast} />
 
-      {success && <p className="admin-success">{success}</p>}
-      {error && <p className="admin-error">{error}</p>}
+      {/* Header */}
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">Categories</h1>
+          <p className="admin-subtitle">Manage top-level taxonomy categories.</p>
+        </div>
+        <button className="admin-button" onClick={openAdd}>
+          <Plus size={15} /> Add category
+        </button>
+      </div>
 
-      {/* Create form */}
-      <section className="admin-card">
-        <h2>Add category</h2>
-
-        <form className="admin-form" onSubmit={handleCreate}>
-          <div className="admin-form-row">
-            <label>
-              Slug
-              <input
-                name="slug"
-                value={createForm.slug}
-                onChange={handleCreateChange}
-                placeholder="e.g. logistics"
-                required
-              />
-            </label>
-
-            <label>
-              Name
-              <input
-                name="name"
-                value={createForm.name}
-                onChange={handleCreateChange}
-                placeholder="e.g. Logistics & Delivery"
-                required
-              />
-            </label>
-          </div>
-
-          <label>
-            Description
-            <input
-              name="description"
-              value={createForm.description}
-              onChange={handleCreateChange}
-              placeholder="Short description"
-            />
-          </label>
-
-          <div className="admin-form-row">
-            <label>
-              Icon
-              <input
-                name="icon"
-                value={createForm.icon}
-                onChange={handleCreateChange}
-                placeholder="e.g. truck"
-              />
-            </label>
-
-            <label>
-              Sort order
-              <input
-                name="sort_order"
-                type="number"
-                value={createForm.sort_order}
-                onChange={handleCreateChange}
-              />
-            </label>
-
-            <label className="admin-checkbox-label">
-              <input
-                name="is_active"
-                type="checkbox"
-                checked={createForm.is_active}
-                onChange={handleCreateChange}
-              />
-              Active
-            </label>
-          </div>
-
-          {createError && (
-            <p className="admin-error">{createError}</p>
-          )}
-
-          <button
-            type="submit"
-            className="admin-button"
-            disabled={creating}
-          >
-            {creating ? "Creating…" : "Create category"}
-          </button>
-        </form>
-      </section>
-
-      {/* Table */}
-      <section className="admin-card">
-        <h2>All categories</h2>
-
-        {isLoading && <p>Loading…</p>}
-
-        {!isLoading && categories.length === 0 && (
-          <p className="admin-empty">No categories yet.</p>
-        )}
-
-        {!isLoading && categories.length > 0 && (
-          <div className="admin-table-wrapper">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Icon</th>
-                  <th>Slug</th>
-                  <th>Name</th>
-                  <th>Description</th>
-                  <th>Sort</th>
-                  <th>Active</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {categories.map((cat) => (
-                  <tr key={cat.slug}>
-                    <td>{cat.icon}</td>
-
+      {/* Table card */}
+      <div className="admin-card">
+        <div className="admin-table-wrapper">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Active</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <SkeletonRows count={8} />
+              ) : items.length === 0 ? (
+                <tr><td colSpan={3}><p className="admin-empty">No categories yet.</p></td></tr>
+              ) : (
+                items.map((cat) => (
+                  <tr key={cat.slug} className={cat.is_active ? "" : "row-inactive"}>
+                    <td style={{ fontWeight: 500, color: "#111827" }}>{cat.name}</td>
                     <td>
-                      <code>{cat.slug}</code>
+                      <Toggle
+                        on={cat.is_active}
+                        onChange={() => toggleActive(cat)}
+                        disabled={togglingSlug === cat.slug}
+                      />
                     </td>
-
-                    <td>{cat.name}</td>
-
-                    <td>{cat.description}</td>
-
-                    <td>{cat.sort_order}</td>
-
                     <td>
-                      {cat.is_active ? (
-                        <Check size={14} />
-                      ) : (
-                        <Minus
-                          size={14}
-                          color="#9ca3af"
-                        />
-                      )}
-                    </td>
-
-                    <td>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "8px",
-                          alignItems: "center",
-                        }}
-                      >
+                      <div className="admin-action-row">
                         <button
-                          className="admin-button-sm"
+                          className="admin-icon-btn"
+                          title="Edit name"
                           onClick={() => openEdit(cat)}
-                          disabled={deletingSlug === cat.slug}
+                          disabled={deletingSlug === cat.slug || togglingSlug === cat.slug}
                         >
-                          Edit
+                          <Pencil size={13} />
                         </button>
-
                         <button
-                          className="admin-button-sm"
+                          className="admin-icon-btn danger"
+                          title="Delete"
                           onClick={() => handleDelete(cat)}
-                          disabled={deletingSlug === cat.slug}
-                          style={{
-                            color: "#dc2626",
-                            borderColor: "#dc2626",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
+                          disabled={deletingSlug === cat.slug || togglingSlug === cat.slug}
                         >
-                          <Trash2 size={14} />
-
-                          {deletingSlug === cat.slug
-                            ? "Deleting…"
-                            : "Delete"}
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </td>
-                    <td>
-                      <button
-                        className="admin-button-danger"
-                        disabled={!cat.is_active || deletingSlug === cat.slug}
-                        onClick={() => handleDelete(cat)}
-                        title={cat.is_active ? "Deactivate" : "Already inactive"}
-                      >
-                        {deletingSlug === cat.slug ? "…" : cat.is_active ? "Deactivate" : "Inactive"}
-                      </button>
-                    </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      {/* Edit modal */}
-      {editTarget && (
-        <div
-          className="admin-modal-backdrop"
-          onClick={() => setEditTarget(null)}
-        >
-          <div
-            className="admin-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2>Edit "{editTarget.name}"</h2>
-
-            <form className="admin-form" onSubmit={handleUpdate}>
-              <label>
-                Icon
-                <input
-                  name="icon"
-                  value={editForm.icon}
-                  onChange={handleEditChange}
-                  placeholder="e.g. laptop"
-                />
-              </label>
-
-              <label>
-                Sort order
-                <input
-                  name="sort_order"
-                  type="number"
-                  value={editForm.sort_order}
-                  onChange={handleEditChange}
-                />
-              </label>
-
-              {editError && (
-                <p className="admin-error">{editError}</p>
+                ))
               )}
-
-              <div className="admin-form-row">
-                <button
-                  type="submit"
-                  className="admin-button"
-                  disabled={updating}
-                >
-                  {updating ? "Saving…" : "Save changes"}
-                </button>
-
-                <button
-                  type="button"
-                  className="admin-button-outline"
-                  onClick={() => setEditTarget(null)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
+            </tbody>
+          </table>
         </div>
+
+        <Pagination page={page} totalPages={totalPages} total={all.length} onPage={setPage} />
+      </div>
+
+      {/* ── Add modal ── */}
+      {showAdd && (
+        <Modal title="Add category" onClose={() => setShowAdd(false)}>
+          <form className="admin-form" onSubmit={handleAdd}>
+            <div className="admin-field">
+              <label>Name</label>
+              <input
+                className="admin-input"
+                value={addForm.name}
+                onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Logistics & Delivery"
+                required
+                autoFocus
+              />
+            </div>
+            <div className="admin-field">
+              <label>Slug <span style={{ fontWeight: 400, color: "#9ca3af", fontSize: 12 }}>(lowercase, underscores)</span></label>
+              <input
+                className="admin-input"
+                value={addForm.slug}
+                onChange={(e) => setAddForm((f) => ({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_") }))}
+                placeholder="e.g. logistics"
+                required
+              />
+            </div>
+            {addError && (
+              <div className="admin-error" style={{ fontSize: 13 }}>{addError}</div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
+              <button type="button" className="admin-button-outline" onClick={() => setShowAdd(false)}>
+                Cancel
+              </button>
+              <button type="submit" className="admin-button" disabled={adding}>
+                {adding ? "Creating…" : "Create"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ── Edit modal ── */}
+      {editTarget && (
+        <Modal title={`Edit category`} onClose={() => setEditTarget(null)}>
+          <form className="admin-form" onSubmit={handleUpdate}>
+            <div className="admin-field">
+              <label>Name</label>
+              <input
+                className="admin-input"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+            {editError && (
+              <div className="admin-error" style={{ fontSize: 13 }}>{editError}</div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
+              <button type="button" className="admin-button-outline" onClick={() => setEditTarget(null)}>
+                Cancel
+              </button>
+              <button type="submit" className="admin-button" disabled={updating}>
+                {updating ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );
