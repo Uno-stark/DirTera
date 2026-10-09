@@ -302,7 +302,7 @@ function Home() {
   });
 
   const featured = featuredData?.items ?? [];
-  const topRated = topData?.items      ?? [];
+  const topRated = (topData?.items ?? []).filter((b) => b.avg_rating >= 3);
 
   const searchParams_ = {
     page: browsingPage, page_size: 9, sort_by: "score", keywords: activeSearch,
