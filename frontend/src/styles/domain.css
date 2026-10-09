@@ -207,6 +207,36 @@
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   overflow: hidden;
+  position: relative;
+}
+
+.di-list-loading {
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.di-page-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 40px;
+}
+
+.di-page-loader::after {
+  content: "";
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: di-spin 0.65s linear infinite;
+}
+
+@keyframes di-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ── Website row ──────────────────────────────────────────────────────────── */
