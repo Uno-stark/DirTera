@@ -11,6 +11,8 @@ const ai = new VoxideClient({
   publicKey: "vox_pub_abe2a63b5233efc9184d9700ccc2a2c74111fa943c07cf42",
   ui: {
     hotkeyActivate: "alt+k", // User can press Alt+K to start voice session
+    enableChat: true, // Enable text chat interface
+    enableVoice: true, // Keep voice enabled
   }
 });
 
