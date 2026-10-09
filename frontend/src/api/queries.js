@@ -78,6 +78,29 @@ export async function fetchAdminAll(params) {
   return data;
 }
 
+/**
+ * Fetch every website across all pages (max page_size=100 per API rules)
+ * and return them as a flat array. Used by the analytics page to gather
+ * all website IDs before a single bulk-stats POST.
+ */
+export async function fetchAllWebsitesForAnalytics() {
+  const PAGE = 100;
+  const first = await fetchAdminAll({ page: 1, page_size: PAGE });
+  const items = [...(first.items ?? [])];
+  const totalPages = first.total_pages ?? 1;
+
+  if (totalPages > 1) {
+    const rest = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, i) =>
+        fetchAdminAll({ page: i + 2, page_size: PAGE })
+      )
+    );
+    for (const r of rest) items.push(...(r.items ?? []));
+  }
+
+  return items;
+}
+
 export async function fetchBulkStats({ websiteIds, startDate, endDate }) {
   const { data } = await api.post("/api/v1/analytics/bulk-stats", {
     website_ids: websiteIds,
