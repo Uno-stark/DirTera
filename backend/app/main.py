@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI):
 
         if not settings.REDIS_URL:
             raise RuntimeError(
-                
+                "REDIS_URL must be set when CACHE_BACKEND is 'redis'"
             )
         redis_client = aioredis.from_url(
             settings.REDIS_URL, encoding="utf-8", decode_responses=False
@@ -136,33 +136,29 @@ def create_app() -> FastAPI:
     async def health():
         return {"status": "ok", "version": settings.APP_VERSION}
 
-    # ── React/Vite frontend ───────────────────────────────────────────────────
-    frontend_dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+        # ── React/Vite frontend ──────────────────────────────────────────────────────
+    frontend_dist = (
+        Path(__file__).resolve().parents[2] / "frontend" / "dist"
+    )
 
     if frontend_dist.exists():
-        from fastapi.staticfiles import StaticFiles
-
-        # Serve the Vite assets directory (JS, CSS, images) as real static files
-        # with correct content-types and cache headers.
-        assets_dir = frontend_dist / "assets"
-        if assets_dir.exists():
-            app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
 
         @app.get("/{full_path:path}", include_in_schema=False)
         async def serve_frontend(full_path: str):
-            # Never let the SPA fallback swallow API requests.
+            # Never let the SPA fallback swallow unknown API requests.
             if full_path.startswith("api/"):
                 return JSONResponse(
                     status_code=404,
                     content={"detail": "Not Found"},
                 )
 
-            # Serve a specific file if it exists (e.g. favicon.ico, manifest.json)
             requested_file = frontend_dist / full_path
+
             if requested_file.is_file():
                 return FileResponse(requested_file)
 
-            # React Router fallback — all other paths get index.html
+            # React Router fallback:
+            # /login, /dashboard, /admin, etc. all receive index.html.
             return FileResponse(frontend_dist / "index.html")
 
 
