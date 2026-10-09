@@ -21,6 +21,7 @@ from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.core.limiter import limiter
 from app.models.token_blocklist import TokenBlocklist
+from app.services.image_service import close_http_client, init_http_client
 
 
 # ── Blocklist cleanup ─────────────────────────────────────────────────────────
@@ -47,6 +48,9 @@ async def lifespan(app: FastAPI):
     # Start the background cleanup task for expired blocklist tokens
     cleanup_task = asyncio.create_task(_purge_expired_tokens())
 
+    # Initialise the shared httpx client (connection pool for Supabase Storage)
+    init_http_client()
+
     if settings.CACHE_BACKEND == "redis":
         # Import lazily so the `redis` package is not required when using
         # the in-memory backend.
@@ -61,12 +65,21 @@ async def lifespan(app: FastAPI):
             settings.REDIS_URL, encoding="utf-8", decode_responses=False
         )
         FastAPICache.init(RedisBackend(redis_client), prefix="dirterra-cache")
+
+        # Pre-warm the shared Redis client used for token blocklist checks in
+        # deps.py, so the first authenticated request doesn't pay the connect cost.
+        from app.core import deps as _deps
+        await _deps._get_redis()
     else:
         FastAPICache.init(InMemoryBackend(), prefix="dirterra-cache")
 
     yield
 
-    # Graceful shutdown — cancel the cleanup loop
+    # ── Graceful shutdown ─────────────────────────────────────────────────────
+    # Close the shared httpx connection pool
+    await close_http_client()
+
+    # Cancel the cleanup loop
     cleanup_task.cancel()
     try:
         await cleanup_task

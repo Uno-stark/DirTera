@@ -77,6 +77,7 @@ async def top_websites(
 
 
 @router.get("/multi-category", response_model=MultiCategoryResponse, summary="Multi-category feed")
+@cache(expire=_CACHE_TTL)
 async def multi_category(
     db: DBSession,
     categories: List[str] = Query(...),
@@ -199,29 +200,8 @@ async def delete_website(website_id: str, current_user: CurrentUser, db: DBSessi
     summary="Check Supabase Storage connectivity and bucket access",
 )
 async def storage_health():
-    import asyncio
-    url_set = bool(settings.SUPABASE_URL)
-    key_set = bool(settings.SUPABASE_SECRET_KEY)
-    bucket = settings.SUPABASE_STORAGE_BUCKET
-    status_info = {
-        "supabase_url_configured": url_set,
-        "supabase_url": settings.SUPABASE_URL if url_set else None,
-        "supabase_key_configured": key_set,
-        "supabase_key_prefix": (settings.SUPABASE_SECRET_KEY[:8] + "...") if key_set else None,
-        "bucket": bucket,
-    }
-    if not url_set or not key_set:
-        return {**status_info, "status": "error", "detail": "SUPABASE_URL or SUPABASE_SECRET_KEY not set"}
-
-    try:
-        from app.services.image_service import _get_supabase_client
-        def _check():
-            client = _get_supabase_client()
-            return client.storage.get_bucket(bucket)
-        res = await asyncio.to_thread(_check)
-        return {**status_info, "status": "ok", "bucket_info": str(res)}
-    except Exception as exc:
-        return {**status_info, "status": "error", "error": str(exc)}
+    """Check Supabase Storage health using the new async implementation."""
+    return await image_service.check_storage_health()
 
 
 @router.post(

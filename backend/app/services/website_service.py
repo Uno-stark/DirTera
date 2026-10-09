@@ -191,22 +191,37 @@ async def delete_website(website: Website, db: AsyncSession) -> None:
 
 async def approve_website(website_id: str, admin: User, db: AsyncSession) -> Website:
     website = await get_website_by_id(website_id, db)
-    if website.status != WebsiteStatus.PENDING:
+    # Allow approving PENDING or REJECTED websites (for re-approval)
+    if website.status not in (WebsiteStatus.PENDING, WebsiteStatus.REJECTED):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot approve a listing with status '{website.status}'",
+            detail=f"Cannot approve a listing with status '{website.status}'. Only pending or rejected listings can be approved.",
         )
+    
+    is_reapproval = website.status == WebsiteStatus.REJECTED
+    
     website.status = WebsiteStatus.APPROVED
     website.reviewed_by_id = admin.id
     website.rejection_message = None
     await db.flush()
-    await create_notification(
-        user_id=website.owner_id,
-        title="Your listing was approved!",
-        body=f'"{website.name}" has been approved and is now live on DirTera.',
-        website_id=website.id,
-        db=db,
-    )
+    
+    # Send notification
+    if is_reapproval:
+        await create_notification(
+            user_id=website.owner_id,
+            title="Your listing was re-approved!",
+            body=f'"{website.name}" has been reviewed and approved. It is now live on DirTera.',
+            website_id=website.id,
+            db=db,
+        )
+    else:
+        await create_notification(
+            user_id=website.owner_id,
+            title="Your listing was approved!",
+            body=f'"{website.name}" has been approved and is now live on DirTera.',
+            website_id=website.id,
+            db=db,
+        )
     return website
 
 

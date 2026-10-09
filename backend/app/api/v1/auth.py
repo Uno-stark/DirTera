@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.deps import CurrentUser
+from app.core.deps import CurrentUser, _get_redis
 from app.core.limiter import limiter
 from app.core.security import decode_token
 from app.models.token_blocklist import TokenBlocklist
@@ -107,7 +107,7 @@ async def logout(
 ) -> None:
     """
     Adds the token's `jti` to the blocklist so it is rejected on all subsequent
-    requests even before its natural expiry time.
+    requests even before its natural expiry time. Also invalidates the Redis cache.
 
     Always returns 204 — including when no token was supplied or the token is
     already expired/invalid — so the client can safely clear its local storage
@@ -123,12 +123,25 @@ async def logout(
 
         if jti and exp:
             expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
+
+            # Add to database blocklist
             existing = await db.execute(
                 sa_select(TokenBlocklist).where(TokenBlocklist.jti == jti)
             )
             if existing.scalar_one_or_none() is None:
                 db.add(TokenBlocklist(jti=jti, expires_at=expires_at))
                 await db.commit()
-    except (JWTError, Exception):
-        # Expired / invalid tokens: nothing useful to blocklist, just return 204
-        pass
+
+            # Invalidate Redis cache — reuse the shared client from deps.py
+            # instead of opening a new connection per logout call.
+            if settings.REDIS_URL:
+                try:
+                    redis = await _get_redis()
+                    if redis is not None:
+                        redis_key = f"blocklist:{jti}"
+                        ttl = (settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60) + 3600
+                        await redis.setex(redis_key, ttl, "1")
+                except Exception:
+                    pass  # Redis unavailable — blocklist still in DB
+    except (JWTError, ValueError):
+        pass  # invalid token — nothing to revoke
