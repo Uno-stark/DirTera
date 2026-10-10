@@ -192,11 +192,15 @@ async def toggle_review_visibility(
     db: DBSession,
     hide: bool = Query(..., description="true to hide, false to show"),
 ):
-    result = await db.execute(select(Review).where(Review.id == review_id))
+    result = await db.execute(
+        select(Review)
+        .where(Review.id == review_id)
+        .options(selectinload(Review.author))
+    )
     review = result.scalar_one_or_none()
     if review is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
     review.is_visible = not hide
     await db.flush()
     await _recalc_rating(review.website_id, db)
-    return review
+    return _to_out(review)

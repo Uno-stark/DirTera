@@ -122,7 +122,8 @@ async def my_websites(
 ):
     items, total = await website_service.list_my_websites(current_user.id, db, page, page_size)
     return PaginatedResponse(
-        items=items, total=total, page=page, page_size=page_size,
+        items=[WebsiteOut.model_validate(i) for i in items],
+        total=total, page=page, page_size=page_size,
         total_pages=math.ceil(total / page_size) if total else 1,
     )
 
@@ -137,12 +138,14 @@ async def admin_list_websites(
     search: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
     domain: Optional[str] = Query(None),
+    has_reviews: Optional[bool] = Query(None),
 ):
     items, total = await website_service.list_websites_admin(
-        db, page, page_size, status_filter, search, category, domain
+        db, page, page_size, status_filter, search, category, domain, has_reviews
     )
     return PaginatedResponse(
-        items=items, total=total, page=page, page_size=page_size,
+        items=[WebsitePendingOut.model_validate(i) for i in items],
+        total=total, page=page, page_size=page_size,
         total_pages=math.ceil(total / page_size) if total else 1,
     )
 
@@ -239,34 +242,45 @@ async def upload_logo(
 @router.post(
     "/{website_id}/images/thumbnail",
     response_model=ImageUploadResponse,
-    summary="Upload or replace the listing cover/thumbnail image",
+    summary="Upload a thumbnail image (up to 3 per listing)",
 )
 async def upload_thumbnail(
     website_id: str,
     current_user: CurrentUser,
     db: DBSession,
-    file: UploadFile = File(..., description="Cover/thumbnail image (JPEG, PNG, WEBP — max 5 MB)"),
+    index: int = Query(0, ge=0, le=2, description="Thumbnail index (0-2)"),
+    file: UploadFile = File(..., description="Thumbnail image (JPEG, PNG, WEBP — max 5 MB)"),
 ):
+    """Upload or replace a thumbnail at the specified index (0-2)."""
     website = await website_service.get_website_owned_by(website_id, current_user.id, db)
 
+    # Map index to slot name
+    slot = f"thumbnail_{index}"
+    
     url = await image_service.upload_image(
-        file=file, website_id=website_id, slot="thumbnail", is_logo=False
+        file=file, website_id=website_id, slot=slot, is_logo=False
     )
 
     current_urls = _split_image_urls(website.image_urls)
-    if current_urls:
-        current_urls[0] = url
-    else:
-        current_urls.append(url)
+    
+    # Ensure the list is large enough
+    while len(current_urls) <= index:
+        current_urls.append("")
+    
+    current_urls[index] = url
+    
+    # Remove trailing empty strings
+    while current_urls and not current_urls[-1]:
+        current_urls.pop()
 
-    website.image_urls = ",".join(current_urls)
+    website.image_urls = ",".join(current_urls) if current_urls else None
     await db.flush()
 
     return ImageUploadResponse(
-        slot="thumbnail",
+        slot=slot,
         url=url,
         logo_url=website.logo_url,
-        thumbnail_url=url,
+        thumbnail_url=current_urls[0] if current_urls else None,
         image_urls=current_urls,
     )
 
@@ -290,92 +304,34 @@ async def delete_logo(
 @router.delete(
     "/{website_id}/images/thumbnail",
     status_code=204,
-    summary="Delete the cover/thumbnail image",
+    summary="Delete a thumbnail image by index (0-2)",
 )
 async def delete_thumbnail(
     website_id: str,
     current_user: CurrentUser,
     db: DBSession,
+    index: int = Query(0, ge=0, le=2, description="Thumbnail index (0-2)"),
 ):
+    """Delete a thumbnail at the specified index."""
     website = await website_service.get_website_owned_by(website_id, current_user.id, db)
-    await image_service.delete_image(website_id, "thumbnail")
-
+    
     current_urls = _split_image_urls(website.image_urls)
-    if current_urls:
-        current_urls.pop(0)
-        website.image_urls = ",".join(current_urls) if current_urls else None
-        await db.flush()
-
-
-@router.post(
-    "/{website_id}/images",
-    response_model=ImageUploadResponse,
-    summary="Upload a gallery image (up to 3 per listing)",
-)
-async def upload_gallery_image(
-    website_id: str,
-    current_user: CurrentUser,
-    db: DBSession,
-    file: UploadFile = File(..., description="Gallery image (JPEG, PNG, WEBP — max 5 MB)"),
-):
-    website = await website_service.get_website_owned_by(website_id, current_user.id, db)
-
-    current_urls = _split_image_urls(website.image_urls)
-    max_images   = settings.MAX_IMAGES_PER_WEBSITE
-
-    if len(current_urls) >= max_images:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Maximum {max_images} gallery images allowed. "
-                   f"Delete one first via DELETE /{website_id}/images/{{index}}.",
-        )
-
-    # Determine next available slot index
-    slot_index = len(current_urls)
-    slot       = f"img_{slot_index}"
-
-    url = await image_service.upload_image(
-        file=file, website_id=website_id, slot=slot, is_logo=False
-    )
-
-    current_urls.append(url)
-    website.image_urls = ",".join(current_urls)
-    await db.flush()
-
-    return ImageUploadResponse(
-        slot=slot,
-        url=url,
-        logo_url=website.logo_url,
-        thumbnail_url=current_urls[0] if current_urls else None,
-        image_urls=current_urls,
-    )
-
-
-@router.delete(
-    "/{website_id}/images/{index}",
-    status_code=204,
-    summary="Delete a gallery image by index (0-2)",
-)
-async def delete_gallery_image(
-    website_id: str,
-    index: int,
-    current_user: CurrentUser,
-    db: DBSession,
-):
-    website = await website_service.get_website_owned_by(website_id, current_user.id, db)
-
-    current_urls = _split_image_urls(website.image_urls)
-
-    if index < 0 or index >= len(current_urls):
+    
+    if index >= len(current_urls) or not current_urls[index]:
         raise HTTPException(
             status_code=404,
-            detail=f"No image at index {index}. Listing has {len(current_urls)} gallery image(s).",
+            detail=f"No thumbnail at index {index}.",
         )
-
-    slot = f"img_{index}"
+    
+    slot = f"thumbnail_{index}"
     await image_service.delete_image(website_id, slot)
 
-    current_urls.pop(index)
+    current_urls[index] = ""
+    
+    # Remove trailing empty strings
+    while current_urls and not current_urls[-1]:
+        current_urls.pop()
+    
     website.image_urls = ",".join(current_urls) if current_urls else None
     await db.flush()
 
