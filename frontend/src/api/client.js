@@ -1,20 +1,5 @@
 import axios from "axios";
 
-
-const CACHE_TTL = 30_000;          // 30 s — fresh enough, avoids thundering herd
-const cache     = new Map();       // url+params → { data, ts }
-const inflight  = new Map();       // url+params → Promise
-
-function cacheKey(url, params) {
-  return params && Object.keys(params).length
-    ? `${url}?${new URLSearchParams(params).toString()}`
-    : url;
-}
-
-function isFresh(entry) {
-  return entry && Date.now() - entry.ts < CACHE_TTL;
-}
-
 // ─── Axios instance ──────────────────────────────────────────────────────────
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "",
@@ -22,7 +7,11 @@ const api = axios.create({
   timeout: 15_000,   // 15 s hard timeout — fail fast instead of hanging forever
 });
 
-// Attach bearer token on every request
+// ─── Token refresh state ─────────────────────────────────────────────────────
+let isRefreshing = false;
+let refreshPromise = null;
+
+// ─── Request interceptor: attach bearer token ────────────────────────────────
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -32,48 +21,65 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ─── Cached GET helper ───────────────────────────────────────────────────────
-// Use this instead of api.get() for read-only, cacheable endpoints.
-// For mutations (POST/PATCH/DELETE) keep using api directly.
-export function cachedGet(url, params, options = {}) {
-  const key = cacheKey(url, params);
+// ─── Response interceptor: auto-refresh on 401 ───────────────────────────────
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
 
-  // Return cached value if still fresh
-  const entry = cache.get(key);
-  if (!options.force && isFresh(entry)) {
-    return Promise.resolve({ data: entry.data, fromCache: true });
+    // Only attempt refresh for 401 errors, once per request
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      // Prevent refresh endpoint itself from triggering refresh loop
+      if (originalRequest.url?.includes("/auth/refresh")) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        window.location.href = "/login?error=session_expired";
+        return Promise.reject(error);
+      }
+
+      const refreshToken = localStorage.getItem("refresh_token");
+      if (!refreshToken) {
+        localStorage.removeItem("access_token");
+        window.location.href = "/login?error=session_expired";
+        return Promise.reject(error);
+      }
+
+      // Deduplicate concurrent refresh attempts
+      if (!isRefreshing) {
+        isRefreshing = true;
+        refreshPromise = api
+          .post("/api/v1/auth/refresh", { refresh_token: refreshToken })
+          .then((response) => {
+            const { access_token, refresh_token } = response.data;
+            localStorage.setItem("access_token", access_token);
+            localStorage.setItem("refresh_token", refresh_token);
+            return access_token;
+          })
+          .catch((refreshError) => {
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+            window.location.href = "/login?error=session_expired";
+            return Promise.reject(refreshError);
+          })
+          .finally(() => {
+            isRefreshing = false;
+            refreshPromise = null;
+          });
+      }
+
+      try {
+        const newToken = await refreshPromise;
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
   }
-
-  // Deduplicate in-flight requests
-  if (inflight.has(key)) return inflight.get(key);
-
-  const req = api
-    .get(url, { params })
-    .then((res) => {
-      cache.set(key, { data: res.data, ts: Date.now() });
-      inflight.delete(key);
-      return { data: res.data, fromCache: false };
-    })
-    .catch((err) => {
-      inflight.delete(key);
-      throw err;
-    });
-
-  inflight.set(key, req);
-  return req;
-}
-
-// Bust a cached entry (call after mutations that affect listed data)
-export function bustCache(url, params) {
-  const key = cacheKey(url, params);
-  cache.delete(key);
-}
-
-// Bust all cache entries whose key starts with a prefix
-export function bustCachePrefix(prefix) {
-  for (const key of cache.keys()) {
-    if (key.startsWith(prefix)) cache.delete(key);
-  }
-}
+);
 
 export default api;
