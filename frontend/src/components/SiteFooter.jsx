@@ -15,7 +15,7 @@ function SiteFooter() {
         <div className="footer-brand">
           <Link to="/" className="footer-logo">
             {logoSrc && (
-              <img src={logoSrc} alt="" className="footer-logo-image" aria-hidden="true" />
+              <img src={logoSrc} alt="" className="footer-logo-image" aria-hidden="true" loading="lazy" />
             )}
             <span className="footer-logo-wordmark">DirTera</span>
           </Link>

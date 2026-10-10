@@ -41,6 +41,7 @@ function Avatar({ user, size }) {
             alt=""
             className="umenu-avatar-img"
             referrerPolicy="no-referrer"
+            loading="lazy"
             onError={() => setImgFailed(true)}
           />
         )
