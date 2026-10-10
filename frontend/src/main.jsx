@@ -6,6 +6,7 @@ import "./index.css";
 import App from "./App.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { TaxonomyProvider } from "./context/TaxonomyContext.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,12 +27,14 @@ const queryClient = new QueryClient({
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TaxonomyProvider>
-          <App />
-        </TaxonomyProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <TaxonomyProvider>
+            <App />
+          </TaxonomyProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );

@@ -26,6 +26,8 @@ const AdminWebsites      = lazy(() => import("./pages/Admin/Websites"));
 const Users              = lazy(() => import("./pages/Admin/Users"));
 const AdminAnalysis      = lazy(() => import("./pages/Admin/AdminAnalytics"));
 const AdminSubscriptions = lazy(() => import("./pages/Admin/AdminSubscriptions"));
+const AdminReviews       = lazy(() => import("./pages/Admin/Reviews"));
+const AdminPlans         = lazy(() => import("./pages/Admin/Plans"));
 
 // ── Shared ────────────────────────────────────────────────────────────────────
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -62,10 +64,12 @@ function AuthModalLayer() {
             <Route path="dashboard"     element={<AdminDashboard />} />
             <Route path="analytics"     element={<AdminAnalysis />} />
             <Route path="subscriptions" element={<AdminSubscriptions />} />
+            <Route path="plans"         element={<AdminPlans />} />
             <Route path="categories"    element={<Categories />} />
             <Route path="domains"       element={<Domains />} />
             <Route path="websites"      element={<AdminWebsites />} />
             <Route path="users"         element={<Users />} />
+            <Route path="reviews"       element={<AdminReviews />} />
           </Route>
         </Route>
 
