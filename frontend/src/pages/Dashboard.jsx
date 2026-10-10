@@ -1,34 +1,20 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import api from "../api/client";
+import { fetchMyListings, keys } from "../api/queries";
 import "../styles/dashboard.css";
 
 function Dashboard() {
+  const [deletingId, setDeletingId] = useState(null);
   
-  const [listings, setListings] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: keys.myListings(),
+    queryFn: fetchMyListings,
+    staleTime: 2 * 60_000, // 2 minutes
+  });
 
-
-  useEffect(() => {
-    const loadListings = async () => {
-      try {
-        const { data } = await api.get("/api/v1/websites/my");
-        setListings(data.items || []);
-      } catch (error) {
-        setError(
-          error.response?.data?.detail ||
-            "We couldn't load your listings."
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadListings();
-  }, []);
-
-  
+  const listings = data?.items || [];
 
   const pendingCount = listings.filter(
     (listing) => listing.status === "pending"
@@ -41,6 +27,20 @@ function Dashboard() {
   const rejectedCount = listings.filter(
     (listing) => listing.status === "rejected"
   ).length;
+
+  const handleDelete = async (listing) => {
+    if (!window.confirm(`Delete "${listing.name}"? This cannot be undone.`)) return;
+    setDeletingId(listing.id);
+    try {
+      await api.delete(`/api/v1/websites/${listing.id}`);
+      // Invalidate query to refetch listings
+      window.location.reload(); // Simple approach for now
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to delete listing.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <main className="dashboard-page">
@@ -91,13 +91,13 @@ function Dashboard() {
 
         {isLoading && <p>Loading your listings...</p>}
 
-        {error && (
+        {isError && (
           <p className="dashboard-error" role="alert">
-            {error}
+            {error?.response?.data?.detail || "We couldn't load your listings."}
           </p>
         )}
 
-        {!isLoading && !error && listings.length === 0 && (
+        {!isLoading && !isError && listings.length === 0 && (
           <div className="dashboard-empty">
             <h3>No listings yet</h3>
             <p>Add your first website to get started.</p>
@@ -110,7 +110,7 @@ function Dashboard() {
           </div>
         )}
 
-        {!isLoading && !error && listings.length > 0 && (
+        {!isLoading && !isError && listings.length > 0 && (
           <div className="dashboard-listings">
             {listings.map((listing) => (
               <article key={listing.id} className="dashboard-listing-card">

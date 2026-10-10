@@ -19,10 +19,12 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hero gallery — stable interval via activeRef (no stale-closure re-creation)
+// Enhanced with smooth crossfade transitions
 // ─────────────────────────────────────────────────────────────────────────────
 function HeroGallery({ images, logoUrl, name, avgRating, reviewCount, isVerified, shortDesc }) {
   const [active,    setActive]    = useState(0);
   const [direction, setDirection] = useState(1);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const timerRef  = useRef(null);
   const activeRef = useRef(0);
 
@@ -32,23 +34,29 @@ function HeroGallery({ images, logoUrl, name, avgRating, reviewCount, isVerified
   useEffect(() => { activeRef.current = active; }, [active]);
 
   const goTo = useCallback((idx, dir = 1) => {
+    if (isTransitioning) return; // Prevent rapid clicks during transition
     setDirection(dir);
+    setIsTransitioning(true);
     setActive((idx + total) % total);
-  }, [total]);
+    
+    // Reset transitioning flag after animation completes
+    setTimeout(() => setIsTransitioning(false), 800);
+  }, [total, isTransitioning]);
 
   useEffect(() => {
     if (total <= 1) return;
     timerRef.current = setInterval(() => {
       goTo((activeRef.current + 1) % total, 1);
-    }, 4500);
+    }, 5000); // Slightly longer interval for smoother experience
     return () => clearInterval(timerRef.current);
   }, [total, goTo]);
 
   const handleDotClick = (i) => {
+    if (i === activeRef.current || isTransitioning) return; // Skip if already active or transitioning
     clearInterval(timerRef.current);
     goTo(i, i > activeRef.current ? 1 : -1);
     if (total > 1) {
-      timerRef.current = setInterval(() => goTo((activeRef.current + 1) % total, 1), 4500);
+      timerRef.current = setInterval(() => goTo((activeRef.current + 1) % total, 1), 5000);
     }
   };
 
@@ -64,7 +72,7 @@ function HeroGallery({ images, logoUrl, name, avgRating, reviewCount, isVerified
       <div className="bd-hero-track">
         {slides.map((src, i) => (
           <div key={i} className={`bd-hero-slide${i === active ? " active" : ""}${direction < 0 ? " dir-bwd" : ""}`}>
-            {src ? <img src={src} alt={`${name} screenshot ${i + 1}`} /> : <div className="bd-hero-placeholder" />}
+            {src ? <img src={src} alt={`${name} screenshot ${i + 1}`} loading={i === 0 ? "eager" : "lazy"} /> : <div className="bd-hero-placeholder" />}
           </div>
         ))}
       </div>
@@ -86,7 +94,7 @@ function HeroGallery({ images, logoUrl, name, avgRating, reviewCount, isVerified
       <div className="bd-hero-identity">
         <div className="bd-hero-logo">
           {logoUrl
-            ? <img src={logoUrl} alt="" />
+            ? <img src={logoUrl} alt="" loading="eager" />
             : <span className="bd-hero-logo-initial">{name.charAt(0).toUpperCase()}</span>}
         </div>
         <div className="bd-hero-info">
@@ -261,7 +269,7 @@ function Avatar({ name, avatarUrl, size = 36 }) {
       style={{ width: size, height: size, fontSize: Math.round(size * 0.42) }}
       aria-hidden="true">
       {avatarUrl
-        ? <img src={avatarUrl} alt="" />
+        ? <img src={avatarUrl} alt="" loading="lazy" />
         : <span>{(name || "?").charAt(0).toUpperCase()}</span>}
     </div>
   );

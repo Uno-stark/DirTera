@@ -59,7 +59,7 @@ function Account() {
         {/* Header */}
         <div className="account-card-header">
           {user?.avatar_url ? (
-            <img src={user.avatar_url} alt="Avatar" className="account-avatar" />
+            <img src={user.avatar_url} alt="Avatar" className="account-avatar" loading="lazy" />
           ) : (
             <div className="account-avatar-placeholder">{initials}</div>
           )}

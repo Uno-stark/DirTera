@@ -16,28 +16,24 @@ const SOCIAL_PLATFORMS = [
     label:       "LinkedIn",
     placeholder: "company/your-business",
     prefix:      "https://linkedin.com/",
-    icon:        "in",
   },
   {
     key:         "tiktok",
     label:       "TikTok",
     placeholder: "@yourbusiness",
     prefix:      "https://tiktok.com/",
-    icon:        "tt",
   },
   {
     key:         "instagram",
     label:       "Instagram",
     placeholder: "yourbusiness",
     prefix:      "https://instagram.com/",
-    icon:        "ig",
   },
   {
     key:         "facebook",
     label:       "Facebook",
     placeholder: "your.page.name",
     prefix:      "https://facebook.com/",
-    icon:        "fb",
   },
 ];
 
@@ -107,15 +103,26 @@ function ImageSlot({ label, previewUrl, onUpload, onDelete, uploading, variant =
         <>
           <img src={previewUrl} alt={label} className="lf2-slot-img" loading="lazy" />
           <div className="lf2-slot-overlay">
-            <button type="button" className="lf2-slot-replace"
-              onClick={() => inputRef.current?.click()} disabled={uploading}>
-              <Upload size={11} />
-              {uploading ? "…" : "Replace"}
-            </button>
-            <button type="button" className="lf2-slot-del"
-              onClick={onDelete} disabled={uploading}>
-              <X size={11} />
-            </button>
+            <div className="lf2-carousel-actions">
+              <button
+                type="button"
+                className="lf2-carousel-btn"
+                onClick={() => inputRef.current?.click()}
+                disabled={uploading}
+                title="Replace"
+              >
+                <Upload size={10} />
+              </button>
+              <button
+                type="button"
+                className="lf2-carousel-btn lf2-carousel-btn--delete"
+                onClick={onDelete}
+                disabled={uploading}
+                title="Delete"
+              >
+                <X size={10} />
+              </button>
+            </div>
           </div>
         </>
       ) : (
@@ -123,12 +130,147 @@ function ImageSlot({ label, previewUrl, onUpload, onDelete, uploading, variant =
           onClick={() => inputRef.current?.click()} disabled={uploading}>
           {uploading
             ? <span className="lf2-uploading">…</span>
-            : <ImagePlus size={14} />}
-          <span>{uploading ? "Uploading" : label}</span>
+            : <ImagePlus size={12} />}
+          <span>{uploading ? "…" : label}</span>
         </button>
       )}
       <input ref={inputRef} type="file" accept={ACCEPTED}
         onChange={handleFile} style={{ display: "none" }} tabIndex={-1} aria-hidden="true" />
+    </div>
+  );
+}
+
+// ── Compact carousel-style thumbnail uploader ─────────────────────────────────
+function ThumbnailCarousel({ images, onUpload, onDelete, uploading, progress, disabled }) {
+  const inputRef = useRef(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Reset index if it goes out of bounds after deletion
+  useEffect(() => {
+    if (images.length > 0 && currentIndex >= images.length) {
+      setCurrentIndex(images.length - 1);
+    }
+  }, [images.length, currentIndex]);
+
+  const handleFiles = (e) => {
+    const files = e.target.files;
+    if (files && files.length > 0) onUpload(files);
+    e.target.value = "";
+  };
+
+  const hasImages = images && images.length > 0;
+  const canAddMore = images.length < MAX_GALLERY;
+
+  const goNext = () => setCurrentIndex((i) => (i + 1) % images.length);
+  const goPrev = () => setCurrentIndex((i) => (i - 1 + images.length) % images.length);
+
+  const handleDelete = () => {
+    onDelete(currentIndex);
+    // If deleting the last image, move to previous
+    if (currentIndex === images.length - 1 && currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    }
+  };
+
+  if (!hasImages) {
+    return (
+      <div className="lf2-slot lf2-slot--wide">
+        <button
+          type="button"
+          className="lf2-slot-empty"
+          onClick={() => inputRef.current?.click()}
+          disabled={disabled || uploading}
+        >
+          {uploading ? (
+            <>
+              <span className="lf2-uploading">…</span>
+              <span>Uploading{progress > 0 && ` ${progress}%`}</span>
+            </>
+          ) : (
+            <>
+              <ImagePlus size={12} />
+              <span>Gallery (up to 3)</span>
+            </>
+          )}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={ACCEPTED}
+          multiple
+          onChange={handleFiles}
+          style={{ display: "none" }}
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="lf2-slot lf2-slot--wide lf2-slot--filled">
+      <img
+        src={images[currentIndex]}
+        alt={`Gallery ${currentIndex + 1}`}
+        className="lf2-slot-img"
+        loading="lazy"
+      />
+      <div className="lf2-slot-overlay">
+        {images.length > 1 && (
+          <>
+            <button
+              type="button"
+              className="lf2-carousel-nav lf2-carousel-nav--prev"
+              onClick={goPrev}
+              disabled={uploading}
+              aria-label="Previous image"
+            >
+              <ChevronLeft size={12} />
+            </button>
+            <button
+              type="button"
+              className="lf2-carousel-nav lf2-carousel-nav--next"
+              onClick={goNext}
+              disabled={uploading}
+              aria-label="Next image"
+            >
+              <ChevronRight size={12} />
+            </button>
+          </>
+        )}
+        <div className="lf2-carousel-actions">
+          {canAddMore && (
+            <button
+              type="button"
+              className="lf2-carousel-btn"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              title="Add more"
+            >
+              <ImagePlus size={10} />
+            </button>
+          )}
+          <button
+            type="button"
+            className="lf2-carousel-btn lf2-carousel-btn--delete"
+            onClick={handleDelete}
+            disabled={uploading}
+            title="Delete"
+          >
+            <X size={10} />
+          </button>
+        </div>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ACCEPTED}
+        multiple
+        onChange={handleFiles}
+        style={{ display: "none" }}
+        tabIndex={-1}
+        aria-hidden="true"
+      />
     </div>
   );
 }
@@ -170,7 +312,7 @@ function ListingForm({ isOpen, onClose, websiteId }) {
   const [galleryUrls,     setGalleryUrls]    = useState([]);
   const [logoUploading,   setLogoUploading]  = useState(false);
   const [thumbUploading,  setThumbUploading] = useState(false);
-  const [imgUploading,    setImgUploading]   = useState(false);
+  const [uploadProgress,  setUploadProgress] = useState(0);
   const [imgErrors,       setImgErrors]      = useState([]);
   const [done,            setDone]           = useState(false);
 
@@ -346,70 +488,78 @@ function ListingForm({ isOpen, onClose, websiteId }) {
     }
   };
 
-  const uploadThumbnail = async (file) => {
+  const uploadThumbnail = async (file, index = 0) => {
     const targetId = websiteId || savedId;
     if (!targetId) { addImgError("Save the listing first."); return; }
     if (!validateSize(file, MAX_IMG_MB)) return;
-    setThumbUploading(true); setImgErrors([]);
     try {
       const fd = new FormData(); fd.append("file", file);
-      const { data } = await api.post(`/api/v1/websites/${targetId}/images/thumbnail`, fd, { timeout: 60_000 });
-      setThumbnailUrl(data.url || data.thumbnail_url);
+      const { data } = await api.post(
+        `/api/v1/websites/${targetId}/images/thumbnail?index=${index}`, 
+        fd, 
+        { timeout: 60_000 }
+      );
       if (data.image_urls) setGalleryUrls(data.image_urls);
+      if (data.thumbnail_url) setThumbnailUrl(data.thumbnail_url);
     } catch (err) {
       const detail = err.response?.data?.detail;
-      addImgError(Array.isArray(detail) ? detail.map((i) => i.msg).join(" ") : detail || "Thumbnail upload failed.");
-    } finally {
-      setThumbUploading(false);
+      throw new Error(Array.isArray(detail) ? detail.map((i) => i.msg).join(" ") : detail || "Upload failed");
     }
   };
 
-  const deleteThumbnail = async () => {
+  const uploadMultipleThumbnails = async (files) => {
+    const targetId = websiteId || savedId;
+    if (!targetId) { addImgError("Save the listing first."); return; }
+    
+    const fileArray = Array.from(files);
+    if (fileArray.length > MAX_GALLERY) {
+      addImgError(`You can only upload up to ${MAX_GALLERY} images.`);
+      return;
+    }
+
+    setThumbUploading(true); 
+    setImgErrors([]);
+    setUploadProgress(0);
+    
+    const errors = [];
+    let successCount = 0;
+
+    for (let i = 0; i < fileArray.length; i++) {
+      try {
+        await uploadThumbnail(fileArray[i], i);
+        successCount++;
+        setUploadProgress(Math.round(((i + 1) / fileArray.length) * 100));
+      } catch (err) {
+        errors.push(`Image ${i + 1}: ${err.message}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      setImgErrors(errors);
+    }
+
+    setThumbUploading(false);
+    setUploadProgress(0);
+  };
+
+  const deleteThumbnail = async (index = 0) => {
     const targetId = websiteId || savedId;
     if (!targetId) return;
     setThumbUploading(true);
     try {
-      await api.delete(`/api/v1/websites/${targetId}/images/thumbnail`);
-      setThumbnailUrl(null);
+      await api.delete(`/api/v1/websites/${targetId}/images/thumbnail?index=${index}`);
+      const newUrls = [...galleryUrls];
+      newUrls[index] = null;
+      // Filter out null values and update
+      const filtered = newUrls.filter(u => u != null);
+      setGalleryUrls(filtered);
+      if (index === 0) {
+        setThumbnailUrl(filtered[0] || null);
+      }
     } catch {
       addImgError("Failed to remove thumbnail.");
     } finally {
       setThumbUploading(false);
-    }
-  };
-
-  const uploadGallery = async (file) => {
-    const targetId = websiteId || savedId;
-    if (!targetId) { addImgError("Save the listing first."); return; }
-    if (galleryUrls.length >= MAX_GALLERY) { addImgError(`Max ${MAX_GALLERY} images.`); return; }
-    if (!validateSize(file, MAX_IMG_MB)) return;
-    setImgUploading(true); setImgErrors([]);
-    try {
-      const fd = new FormData(); fd.append("file", file);
-      const { data } = await api.post(`/api/v1/websites/${targetId}/images`, fd, { timeout: 60_000 });
-      setGalleryUrls(data.image_urls || []);
-      if (!thumbnailUrl && data.image_urls?.[0]) {
-        setThumbnailUrl(data.image_urls[0]);
-      }
-    } catch (err) {
-      const detail = err.response?.data?.detail;
-      addImgError(Array.isArray(detail) ? detail.map((i) => i.msg).join(" ") : detail || "Image upload failed.");
-    } finally {
-      setImgUploading(false);
-    }
-  };
-
-  const deleteGallery = async (index) => {
-    const targetId = websiteId || savedId;
-    if (!targetId) return;
-    setImgUploading(true);
-    try {
-      await api.delete(`/api/v1/websites/${targetId}/images/${index}`);
-      setGalleryUrls((p) => p.filter((_, i) => i !== index));
-    } catch {
-      addImgError("Failed to remove image.");
-    } finally {
-      setImgUploading(false);
     }
   };
 
@@ -521,10 +671,12 @@ function ListingForm({ isOpen, onClose, websiteId }) {
           {imgErrors.map((e, i) => <span key={i}>{e}</span>)}
         </div>
       )}
-      <div className="lf2-media-row">
-        {/* Logo */}
-        <div className="lf2-media-item">
-          <span className="lf2-media-label">Logo <small>400×400 · PNG/JPG · 2 MB</small></span>
+      
+      <div className="lf2-media-section">
+        <span className="lf2-media-label">
+          Images <small>Logo: 400×400 · Gallery: up to 3 images at 1600×900 · PNG/JPG/WEBP</small>
+        </span>
+        <div className="lf2-media-row">
           <ImageSlot
             label="Logo"
             previewUrl={logoUrl}
@@ -533,21 +685,16 @@ function ListingForm({ isOpen, onClose, websiteId }) {
             uploading={logoUploading}
             variant="logo"
           />
-        </div>
-        {/* Thumbnail */}
-        <div className="lf2-media-item lf2-media-item--wide">
-          <span className="lf2-media-label">Cover photo <small>1600X600 · PNG/JPG · 5 MB</small></span>
-          <ImageSlot
-            label="Cover"
-            previewUrl={thumbnailUrl}
-            onUpload={imagesUnlocked ? uploadThumbnail : () => addImgError("Save listing first.")}
+          <ThumbnailCarousel
+            images={galleryUrls}
+            onUpload={imagesUnlocked ? uploadMultipleThumbnails : () => addImgError("Save listing first.")}
             onDelete={deleteThumbnail}
             uploading={thumbUploading}
-            variant="wide"
+            progress={uploadProgress}
+            disabled={!imagesUnlocked}
           />
         </div>
       </div>
-
     </div>,
 
     /* 3 — Contact */
@@ -566,9 +713,8 @@ function ListingForm({ isOpen, onClose, websiteId }) {
       </div>
       <Field label="Social links" hint="Optional. Enter just the handle or page name — no need for the full URL.">
         <div className="lf2-socials">
-          {SOCIAL_PLATFORMS.map(({ key, label, placeholder, icon }) => (
+          {SOCIAL_PLATFORMS.map(({ key, label, placeholder }) => (
             <div key={key} className="lf2-social-row">
-              <span className="lf2-social-icon" data-platform={key}>{icon}</span>
               <span className="lf2-social-label">{label}</span>
               <input
                 type="text"

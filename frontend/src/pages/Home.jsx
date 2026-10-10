@@ -60,6 +60,8 @@ function HeroBgTrack({ active }) {
           key={i}
           className={`hero-bg-slide${i === active ? " active" : ""}`}
           style={{ backgroundImage: `url(${resolveImage(s.image)})` }}
+          // Preload first slide, lazy load others
+          {...(i === 0 ? {} : { 'data-lazy': 'true' })}
         />
       ))}
       <div className="hero-overlay" />
@@ -321,11 +323,10 @@ function Home() {
   const goModal = (path) =>
     navigate(path, { state: { backgroundLocation: location } });
 
-  // Only animate + duplicate when cards overflow the viewport (more than 3)
+  // Only enable manual scrolling - no auto-animation to avoid DOM duplication
   const ANIMATE_THRESHOLD = 3;
-  const shouldAnimate  = featured.length > ANIMATE_THRESHOLD;
-  // For seamless CSS loop we need 2 sets in the DOM
-  const carouselItems  = shouldAnimate ? [...featured, ...featured] : featured;
+  const shouldAnimate  = false; // Disabled to avoid duplicating DOM nodes
+  const carouselItems  = featured;
 
   const { trackRef, handlers } = useFeaturedCarousel();
 
@@ -438,8 +439,8 @@ function Home() {
                 </div>
                 <div className="ticker-rows">
                   {[topRated.slice(0, 8), topRated.slice(8, 16)].map((row, ri) => {
-                    // Only duplicate when there are enough items to fill the row
-                    const trackItems = row.length > 4 ? [...row, ...row] : row;
+                    // Use original items - manual scroll instead of infinite animation
+                    const trackItems = row;
                     return (
                       <div key={ri} className="ticker-row">
                         <div className={`ticker-track${ri === 1 ? " ticker-track-reverse" : ""}`}>

@@ -3,7 +3,7 @@ import { NavLink, Outlet, Navigate, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Globe, Users, Tag, Layers,
   BarChart2, CreditCard, Home, LogOut, ShieldCheck,
-  PanelLeftClose, PanelLeftOpen, Menu, X,
+  PanelLeftClose, PanelLeftOpen, Menu, X, MessageSquare, DollarSign,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import "../../styles/admin.css";
@@ -12,10 +12,12 @@ const navItems = [
   { to: "/admin/dashboard",     label: "Dashboard",     icon: LayoutDashboard },
   { to: "/admin/websites",      label: "Websites",      icon: Globe           },
   { to: "/admin/users",         label: "Users",         icon: Users           },
+  { to: "/admin/reviews",       label: "Reviews",       icon: MessageSquare   },
   { to: "/admin/categories",    label: "Categories",    icon: Tag             },
   { to: "/admin/domains",       label: "Domains",       icon: Layers          },
   { to: "/admin/analytics",     label: "Analytics",     icon: BarChart2       },
   { to: "/admin/subscriptions", label: "Subscriptions", icon: CreditCard      },
+  { to: "/admin/plans",         label: "Plans",         icon: DollarSign      },
 ];
 
 function AdminLayout() {

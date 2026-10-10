@@ -48,7 +48,7 @@ function AuthModal({ isModal, onClose }) {
         <div className="auth-header auth-header-centered">
           <div className="auth-brand auth-brand-centered">
             {logoSrc && (
-              <img src={logoSrc} alt="" className="auth-brand-logo" aria-hidden="true" />
+              <img src={logoSrc} alt="" className="auth-brand-logo" aria-hidden="true" loading="eager" />
             )}
             <span>DirTera</span>
           </div>
