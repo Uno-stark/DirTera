@@ -352,11 +352,10 @@ async def list_websites_admin(
     domain_slug: Optional[str] = None,
     has_reviews: Optional[bool] = None,
 ) -> Tuple[List[Website], int]:
-    query = select(Website).options(selectinload(Website.owner))
-    
-    # Load reviews if has_reviews filter is specified
-    if has_reviews is not None:
-        query = query.options(selectinload(Website.reviews))
+    query = select(Website).options(
+        selectinload(Website.owner),
+        selectinload(Website.reviews)  # Always load reviews for admin view
+    )
     
     if status_filter:
         query = query.where(Website.status == status_filter)
