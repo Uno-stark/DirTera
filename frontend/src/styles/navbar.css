@@ -136,16 +136,6 @@
   margin-left: auto;
 }
 
-.nav-link {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 14px;
-  font-weight: 500;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: color 0.12s;
-}
-.nav-link:hover { color: #ffffff; }
-
 .nav-register {
   padding: 7px 16px;
   border-radius: 7px;
@@ -156,26 +146,13 @@
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
   transition: background 0.12s, border-color 0.12s;
 }
 .nav-register:hover {
   background: rgba(255, 255, 255, 0.25);
   border-color: rgba(255, 255, 255, 0.5);
 }
-
-.nav-button {
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.85);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color 0.12s;
-}
-.nav-button:hover { color: #ffffff; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Category bar
@@ -292,6 +269,189 @@
    Responsive
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* Mobile menu button - hidden on desktop */
+.nav-mobile-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.nav-mobile-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Mobile overlay */
+.nav-mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 300;
+  animation: overlay-fade-in 0.2s ease;
+}
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Mobile drawer */
+.nav-mobile-drawer {
+  display: none;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 85%;
+  max-width: 320px;
+  background: #111827;
+  z-index: 301;
+  overflow-y: auto;
+  padding: 20px;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.3);
+  animation: drawer-slide-in 0.25s cubic-bezier(0.2, 0, 0.13, 1);
+}
+
+@keyframes drawer-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.nav-search-mobile {
+  margin-bottom: 24px;
+}
+
+.nav-mobile-categories {
+  margin-bottom: 24px;
+}
+
+.nav-mobile-section-title {
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nav-mobile-cat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-mobile-cat-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-mobile-cat-link,
+.nav-mobile-cat-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.nav-mobile-cat-link:hover,
+.nav-mobile-cat-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.nav-mobile-cat-btn.expanded {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.nav-mobile-cat-chevron {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.nav-mobile-domain-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 0 8px 12px;
+  overflow: hidden;
+  animation: expand-domains 0.25s ease-out;
+}
+
+@keyframes expand-domains {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+    transform: translateY(0);
+  }
+}
+
+.nav-mobile-domain-link {
+  display: block;
+  padding: 7px 12px;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.12s, color 0.12s;
+  position: relative;
+}
+
+.nav-mobile-domain-link::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: rgba(255, 255, 255, 0.3);
+  font-weight: 700;
+}
+
+.nav-mobile-domain-link:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.nav-mobile-auth {
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nav-mobile-signin {
+  width: 100%;
+  justify-content: center;
+  padding: 10px 20px;
+}
+
 @media (max-width: 900px) {
   .nav-search { max-width: none; }
 }
@@ -311,25 +471,34 @@
   }
 
   .nav-domain-portal { max-width: 240px; }
+  
+  /* Show mobile menu button, hide desktop search */
+  .nav-mobile-menu-btn {
+    display: flex;
+  }
+  
+  .nav-search-desktop {
+    display: none;
+  }
+  
+  /* Hide desktop category bar on mobile */
+  .nav-cats-bar-desktop {
+    display: none;
+  }
+  
+  /* Show mobile drawer when open */
+  .nav-mobile-overlay,
+  .nav-mobile-drawer {
+    display: block;
+  }
 }
 
 @media (max-width: 540px) {
-  /* Keep logo + search, hide text links */
-  .nav-link { display: none; }
   .logo-wordmark { font-size: 16px; }
-}
-
-/* Auth trigger buttons — same look as the Link versions */
-.nav-link-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  cursor: pointer;
-}
-
-.nav-register-btn {
-  cursor: pointer;
+  
+  .nav-mobile-drawer {
+    width: 90%;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

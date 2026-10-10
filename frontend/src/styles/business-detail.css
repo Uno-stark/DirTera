@@ -53,7 +53,8 @@
   background-position: center;
   filter: blur(18px) brightness(1.0) saturate(1.1);
   opacity: 0;
-  transition: opacity 1s ease;
+  transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity;
 }
 .bd-hero-bg-slide.active { opacity: 1; }
 
@@ -84,12 +85,22 @@
   position: absolute;
   inset: 0;
   opacity: 0;
-  transform: translateX(40px);
-  transition: opacity 0.55s ease, transform 0.55s ease;
+  transform: translateX(60px) scale(0.95);
+  transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1), 
+              transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
+  will-change: opacity, transform;
 }
-.bd-hero-slide.dir-bwd { transform: translateX(-40px); }
-.bd-hero-slide.active  { opacity: 1; transform: translateX(0); pointer-events: auto; }
+.bd-hero-slide.dir-bwd { 
+  transform: translateX(-60px) scale(0.95); 
+}
+.bd-hero-slide.active  { 
+  opacity: 1; 
+  transform: translateX(0) scale(1); 
+  pointer-events: auto; 
+  transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1), 
+              transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
 
 .bd-hero-slide img {
   width: 100%;
@@ -125,9 +136,17 @@
   padding: 0;
   background: rgba(255,255,255,0.35);
   cursor: pointer;
-  transition: background 0.18s, transform 0.18s;
+  transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
+              transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.bd-hero-dot.active { background: #fff; transform: scale(1.4); }
+.bd-hero-dot:hover { 
+  background: rgba(255,255,255,0.6);
+  transform: scale(1.2);
+}
+.bd-hero-dot.active { 
+  background: #fff; 
+  transform: scale(1.4); 
+}
 
 /* ── Identity band — floats over gradient, no background ───────────────── */
 

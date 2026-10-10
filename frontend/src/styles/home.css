@@ -207,14 +207,15 @@
   white-space: nowrap;
 }
 
-/* When more than 3 cards, apply the scroll animation */
+/* When more than 3 cards, enable manual scrolling (animation disabled to prevent DOM duplication) */
 .featured-carousel--scroll {
-  animation: fc-scroll 30s linear infinite;
+  /* animation: fc-scroll 30s linear infinite; - DISABLED */
 }
 .featured-carousel--scroll:hover {
-  animation-play-state: paused;
+  /* animation-play-state: paused; - DISABLED */
 }
 
+/* Keyframe kept for reference but not used */
 @keyframes fc-scroll {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
@@ -449,9 +450,13 @@
 }
 
 .ticker-row {
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  padding: 4px 0;
 }
 
+/* Keyframes kept for reference but not actively used */
 @keyframes ticker-left {
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
@@ -466,17 +471,17 @@
   display: flex;
   gap: 10px;
   width: max-content;
-  animation: ticker-left 30s linear infinite;
+  /* Animation disabled to prevent DOM duplication - manual scroll enabled */
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: 4px 0;
 }
 
 .ticker-track-reverse {
-  animation: ticker-right 30s linear infinite;
+  /* No animation - keep styling consistent */
 }
 
-.ticker-track:hover,
-.ticker-track-reverse:hover {
-  animation-play-state: paused;
-}
+/* Hover states removed since animation is disabled */
 
 .ticker-item {
   display: inline-flex;

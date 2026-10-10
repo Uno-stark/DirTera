@@ -129,3 +129,116 @@
   .an-container { max-width: calc(100% - 32px); padding: 28px 0 60px; }
   .an-export-btn { width: 100%; }
 }
+
+/* ── Selector card ─────────────────────────────────────────────────────────── */
+.an-selector-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.an-selector-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* ── Stats section ─────────────────────────────────────────────────────────── */
+.an-stats-section {
+  margin-bottom: 32px;
+}
+
+.an-section-title {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.3px;
+}
+
+.an-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.an-stat-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.an-stat-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.an-stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.an-stat-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.an-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.an-date-range {
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* ── Export section ────────────────────────────────────────────────────────── */
+.an-export-section {
+  margin-bottom: 32px;
+}
+
+.an-export-desc {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+/* ── Responsive updates ────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .an-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .an-container {
+    width: 100%;
+  }
+}

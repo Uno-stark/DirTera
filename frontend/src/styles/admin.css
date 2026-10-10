@@ -79,9 +79,10 @@
   height: 100%;
   padding: 16px 10px 16px;
   gap: 4px;
-  overflow: hidden;
+  overflow: visible; /* Allow content to be visible */
   min-width: var(--sidebar-w-sm);
-  width: var(--sidebar-w); /* always full internal width so nothing reflows during transition */
+  width: 100%; /* Adapt to parent width */
+  transition: width var(--transition);
 }
 
 /* ── Brand row ── */
@@ -94,8 +95,8 @@
   margin-bottom: 8px;
   white-space: nowrap;
   min-width: 0;
-  /* inner is always var(--sidebar-w) wide, so brand row too */
-  width: 100%;
+  width: 100%; /* Adapt to parent */
+  overflow: visible; /* Prevent clipping of toggle button */
 }
 
 .admin-brand-text {
@@ -134,19 +135,21 @@
 
 /*
  * When collapsed the inner is still 220px wide but the sidebar clips at 56px.
- * We need the toggle to sit within the first 56px.
- * Switch to absolute positioning inside the brand row.
+ * We need the toggle to sit within the first 56px without overlapping icons.
+ * Position it inside the brand row with proper centering.
  */
 .admin-sidebar.collapsed .admin-brand {
   position: relative;
+  justify-content: center; /* Center the icon when collapsed */
 }
+
 .admin-sidebar.collapsed .admin-sidebar-toggle.desktop-only {
   position: absolute;
-  /* Center horizontally inside the 56px visible rail */
-  left: calc((var(--sidebar-w-sm) - 24px) / 2);
-  top: 50%;
-  transform: translateY(-60%); /* account for bottom padding on brand row */
+  /* Position in the top-right corner of the brand row */
+  right: 8px;
+  top: 8px;
   margin-left: 0;
+  z-index: 10; /* Ensure it's above other elements */
 }
 
 /* ── Nav ── */
@@ -155,7 +158,7 @@
   flex-direction: column;
   gap: 2px;
   flex: 1;
-  overflow: hidden;
+  overflow: visible; /* Changed from hidden to prevent icon clipping */
 }
 
 .admin-nav-link {
@@ -169,7 +172,7 @@
   font-size: 13.5px;
   font-weight: 500;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: visible; /* Changed from hidden to prevent icon clipping */
   transition: background var(--transition), color var(--transition);
 }
 .admin-nav-link:hover  { background: #1f2937; color: #e5e7eb; }
@@ -193,6 +196,7 @@
 .admin-sidebar.collapsed .admin-nav-link {
   justify-content: center;
   padding: 9px 0;
+  width: var(--sidebar-w-sm); /* Constrain width to sidebar rail */
 }
 
 .admin-nav-icon {
@@ -222,7 +226,7 @@
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: visible; /* Changed from hidden to prevent icon clipping */
   transition: background var(--transition), color var(--transition);
 }
 .admin-home-link:hover { background: #1f2937; color: #d1d5db; }
@@ -242,7 +246,7 @@
   text-align: left;
   cursor: pointer;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: visible; /* Changed from hidden to prevent icon clipping */
   transition: background var(--transition), color var(--transition);
 }
 .admin-logout:hover { background: #1f2937; color: #f87171; }
@@ -271,6 +275,7 @@
 .admin-sidebar.collapsed .admin-logout {
   justify-content: center;
   padding: 9px 0;
+  width: var(--sidebar-w-sm); /* Constrain width to sidebar rail */
 }
 
 /* ── Drawer overlay (mobile) ── */
@@ -380,7 +385,7 @@
     padding: 9px 10px;
   }
 
-  /* Always show labels inside drawer */
+  /* Always show labels inside drawer (even if collapsed class is present) */
   .admin-sidebar .admin-brand-text,
   .admin-sidebar .admin-nav-label,
   .admin-sidebar .admin-home-link span,
@@ -390,14 +395,14 @@
     margin: initial !important;
   }
 
-  /* Always show the toggle in collapsed state at normal position */
-  .admin-sidebar.collapsed .admin-sidebar-toggle.desktop-only {
-    position: static;
-    transform: none;
-    margin-left: auto;
+  /* Always show the toggle at normal position inside mobile drawer */
+  .admin-sidebar .admin-sidebar-toggle.desktop-only {
+    position: static !important;
+    transform: none !important;
+    margin-left: auto !important;
   }
-  .admin-sidebar.collapsed .admin-brand {
-    position: static;
+  .admin-sidebar .admin-brand {
+    position: static !important;
   }
 
   .admin-main { padding: 0; }
