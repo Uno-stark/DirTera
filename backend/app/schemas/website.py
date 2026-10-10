@@ -9,6 +9,12 @@ import re
 from app.models.website import WebsiteStatus
 
 
+# Forward reference for ReviewOut - actual import happens after Review schema is loaded
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from app.schemas.review import ReviewOut
+
+
 def _slug_or_none(v: Optional[str]) -> Optional[str]:
     if v is None:
         return v
@@ -179,6 +185,7 @@ class WebsiteDetailOut(WebsiteOut):
 
 class WebsitePendingOut(WebsiteOut):
     owner: WebsiteOwnerOut
+    reviews: Optional[List["ReviewOut"]] = None  # Include reviews for admin
 
 
 class WebsiteStatSummary(BaseModel):
@@ -217,3 +224,17 @@ class ImageUploadResponse(BaseModel):
     logo_url: Optional[str] = None
     thumbnail_url: Optional[str] = None
     image_urls: List[str] = []
+
+
+# Resolve forward references after all models are defined
+# This allows WebsitePendingOut to reference ReviewOut
+def _resolve_forward_refs():
+    """Import ReviewOut and rebuild models to resolve forward references."""
+    try:
+        from app.schemas.review import ReviewOut
+        WebsitePendingOut.model_rebuild()
+    except ImportError:
+        pass  # ReviewOut may not be available in all contexts
+
+
+_resolve_forward_refs()
