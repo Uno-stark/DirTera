@@ -350,8 +350,14 @@ async def list_websites_admin(
     search: Optional[str] = None,
     category_slug: Optional[str] = None,
     domain_slug: Optional[str] = None,
+    has_reviews: Optional[bool] = None,
 ) -> Tuple[List[Website], int]:
     query = select(Website).options(selectinload(Website.owner))
+    
+    # Load reviews if has_reviews filter is specified
+    if has_reviews is not None:
+        query = query.options(selectinload(Website.reviews))
+    
     if status_filter:
         query = query.where(Website.status == status_filter)
     if category_slug:
@@ -363,6 +369,10 @@ async def list_websites_admin(
         query = query.where(
             (Website.name.ilike(like)) | (Website.url.ilike(like))
         )
+    
+    # Filter for websites that have reviews
+    if has_reviews:
+        query = query.where(Website.review_count > 0)
 
     count_q = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_q)).scalar_one()

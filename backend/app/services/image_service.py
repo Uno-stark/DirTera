@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 _ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 # Image slot type
-ImageSlot = Literal["logo", "thumbnail", "img_0", "img_1", "img_2"]
+ImageSlot = Literal["logo", "thumbnail_0", "thumbnail_1", "thumbnail_2"]
 
 # HTTP client timeout
 _UPLOAD_TIMEOUT = 30.0
@@ -318,7 +318,7 @@ async def delete_all_website_images(website_id: str) -> None:
     if not settings.SUPABASE_URL or not settings.SUPABASE_SECRET_KEY:
         return
 
-    paths = [f"{website_id}/{s}.webp" for s in ("logo", "thumbnail", "img_0", "img_1", "img_2")]
+    paths = [f"{website_id}/{s}.webp" for s in ("logo", "thumbnail_0", "thumbnail_1", "thumbnail_2")]
 
     try:
         await _do_remove_async(paths)
