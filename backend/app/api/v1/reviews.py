@@ -1,14 +1,15 @@
 """
 Review / rating endpoints.
 
-POST   /reviews/{website_id}      → leave a review (logged-in users)
-GET    /reviews/{website_id}      → list reviews for a website (public)
-PATCH  /reviews/{review_id}       → edit own review
-DELETE /reviews/{review_id}       → delete own review
+POST   /reviews/{website_id}        → leave a review (logged-in users)
+GET    /reviews/{website_id}        → list reviews for a website (public, only visible reviews)
+PATCH  /reviews/{review_id}         → edit own review
+DELETE /reviews/{review_id}         → delete own review
 
 --- Admin ---
-DELETE /reviews/{review_id}/admin → remove any review
-PATCH  /reviews/{review_id}/hide  → hide/show a review
+DELETE /reviews/{review_id}/admin   → remove any review
+PATCH  /reviews/{review_id}/hide    → hide a review (removes from public view)
+PATCH  /reviews/{review_id}/unhide  → unhide a review (makes visible to public)
 """
 
 import math
@@ -186,12 +187,12 @@ async def admin_delete_review(review_id: str, _admin: AdminUser, db: DBSession):
 
 
 @router.patch("/{review_id}/hide", response_model=ReviewOut)
-async def toggle_review_visibility(
+async def hide_review(
     review_id: str,
     _admin: AdminUser,
     db: DBSession,
-    hide: bool = Query(..., description="true to hide, false to show"),
 ):
+    """Hide a review (admin only). Hidden reviews are not shown to public users."""
     result = await db.execute(
         select(Review)
         .where(Review.id == review_id)
@@ -200,7 +201,30 @@ async def toggle_review_visibility(
     review = result.scalar_one_or_none()
     if review is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
-    review.is_visible = not hide
+    review.is_visible = False
     await db.flush()
+    await db.refresh(review)
+    await _recalc_rating(review.website_id, db)
+    return _to_out(review)
+
+
+@router.patch("/{review_id}/unhide", response_model=ReviewOut)
+async def unhide_review(
+    review_id: str,
+    _admin: AdminUser,
+    db: DBSession,
+):
+    """Unhide a review (admin only). Makes the review visible to public users."""
+    result = await db.execute(
+        select(Review)
+        .where(Review.id == review_id)
+        .options(selectinload(Review.author))
+    )
+    review = result.scalar_one_or_none()
+    if review is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
+    review.is_visible = True
+    await db.flush()
+    await db.refresh(review)
     await _recalc_rating(review.website_id, db)
     return _to_out(review)

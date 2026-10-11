@@ -55,6 +55,20 @@ class WebsiteCreate(BaseModel):
     def normalise_slug(cls, v):
         return _slug_or_none(v)
 
+    @field_validator("url", mode="before")
+    @classmethod
+    def normalise_url(cls, v):
+        if not v:
+            return v
+        v = v.strip()
+        # Ensure URL has a protocol
+        if v and not re.match(r"^https?://", v, re.IGNORECASE):
+            v = f"https://{v}"
+        # Basic URL validation
+        if not re.match(r"^https?://[^\s/$.?#].[^\s]*$", v, re.IGNORECASE):
+            raise ValueError("Invalid URL format")
+        return v
+
 
 class WebsiteUpdate(BaseModel):
     name: Optional[str] = None
@@ -72,6 +86,20 @@ class WebsiteUpdate(BaseModel):
     @classmethod
     def normalise_slug(cls, v):
         return _slug_or_none(v)
+
+    @field_validator("url", mode="before")
+    @classmethod
+    def normalise_url(cls, v):
+        if not v:
+            return v
+        v = v.strip()
+        # Ensure URL has a protocol
+        if v and not re.match(r"^https?://", v, re.IGNORECASE):
+            v = f"https://{v}"
+        # Basic URL validation
+        if not re.match(r"^https?://[^\s/$.?#].[^\s]*$", v, re.IGNORECASE):
+            raise ValueError("Invalid URL format")
+        return v
 
 
 class WebsiteAdminUpdate(BaseModel):
