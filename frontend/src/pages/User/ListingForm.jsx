@@ -397,6 +397,14 @@ function ListingForm({ isOpen, onClose, websiteId }) {
     }));
   };
 
+  // ── URL normalization on blur ─────────────────────────────────────────────
+  const handleUrlBlur = () => {
+    const url = form.url.trim();
+    if (url && !/^https?:\/\//i.test(url)) {
+      setForm((prev) => ({ ...prev, url: `https://${url}` }));
+    }
+  };
+
   // ── Step navigation ────────────────────────────────────────────────────────
   const goTo = useCallback((target) => {
     if (animating) return;
@@ -612,6 +620,7 @@ function ListingForm({ isOpen, onClose, websiteId }) {
         </Field>
         <Field label="Website URL" required>
           <input name="url" type="url" value={form.url} onChange={handleChange}
+            onBlur={handleUrlBlur}
             placeholder="https://example.com" required />
         </Field>
       </div>

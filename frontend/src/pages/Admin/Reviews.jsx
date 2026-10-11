@@ -191,13 +191,12 @@ function Reviews() {
   /* ── Toggle visibility ── */
   const toggleVisibility = async (review) => {
     setActingId(review.id);
-    const newVisibility = !review.is_visible;
+    const shouldHide = review.is_visible; // If currently visible, we want to hide it
+    const endpoint = shouldHide ? "hide" : "unhide";
+    
     try {
-      const response = await api.patch(`/api/v1/reviews/${review.id}/hide`, null, {
-        params: { hide: !newVisibility },
-      });
-      console.log('Toggle visibility - Current state:', review.is_visible, 'New state:', response.data.is_visible);
-      toast(`Review ${newVisibility ? "shown" : "hidden"}.`);
+      const response = await api.patch(`/api/v1/reviews/${review.id}/${endpoint}`);
+      toast(`Review ${shouldHide ? "hidden" : "unhidden"}.`);
       // Force immediate refetch
       await queryClient.invalidateQueries({ queryKey: ["admin", "reviews"] });
     } catch (err) {
