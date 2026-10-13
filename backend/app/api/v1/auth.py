@@ -57,7 +57,7 @@ async def google_callback_redirect(
     db: AsyncSession = Depends(get_db),
 ):
     _, tokens = await auth_service.google_login_or_register(code=code, db=db)
-    frontend_url = settings.allowed_origins_list[1]
+    frontend_url = settings.allowed_origins_list[0]
     return RedirectResponse(
         url=f"{frontend_url}/auth/callback"
             f"?access_token={tokens.access_token}"
